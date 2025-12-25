@@ -88,6 +88,28 @@
             font-size: 20px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
         }
+        #difficulty-tier {
+            position: absolute;
+            top: 100px;
+            right: 20px;
+            color: #f1c40f;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        #wave-warning {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #e74c3c;
+            font-size: 36px;
+            font-weight: bold;
+            text-shadow: 0 0 20px #c0392b;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
 
         /* Level Up Screen */
         #level-up-screen {
@@ -251,6 +273,8 @@
             </div>
             <div id="timer">00:00</div>
             <div id="kill-count">Kills: 0</div>
+            <div id="difficulty-tier">Difficulty: I</div>
+            <div id="wave-warning"></div>
         </div>
 
         <!-- Level Up Screen -->
@@ -312,6 +336,170 @@
         let spawnInterval = 2;
         let lastSpawnTime = 0;
         let difficultyMultiplier = 1;
+        let currentDifficultyTier = 1;
+        let lastBossSpawnTime = -60;
+        let enemyProjectiles = [];
+
+        // Difficulty tiers and enemy unlocks
+        const difficultyTiers = [
+            { time: 0, name: 'I', enemies: ['basic', 'fast'] },
+            { time: 30, name: 'II', enemies: ['basic', 'fast', 'tank'] },
+            { time: 60, name: 'III', enemies: ['basic', 'fast', 'tank', 'exploder'] },
+            { time: 90, name: 'IV', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter'] },
+            { time: 120, name: 'V', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter', 'shooter'] },
+            { time: 180, name: 'VI', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter', 'shooter', 'ghost'] },
+            { time: 240, name: 'VII', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter', 'shooter', 'ghost', 'teleporter'] },
+            { time: 300, name: 'VIII', enemies: ['elite_basic', 'elite_fast', 'tank', 'exploder', 'splitter', 'shooter', 'ghost', 'teleporter'] }
+        ];
+
+        // Enemy type definitions
+        const enemyTypes = {
+            basic: {
+                geometry: () => new THREE.BoxGeometry(0.8, 0.8, 0.8),
+                color: 0xe74c3c,
+                emissive: 0x922b21,
+                health: 30,
+                speed: 3,
+                damage: 10,
+                scale: 1,
+                weight: 40,
+                gemCount: () => Math.ceil(Math.random() * 2)
+            },
+            fast: {
+                geometry: () => new THREE.ConeGeometry(0.4, 1, 8),
+                color: 0x9b59b6,
+                emissive: 0x6c3483,
+                health: 15,
+                speed: 7,
+                damage: 5,
+                scale: 0.8,
+                weight: 25,
+                gemCount: () => 1
+            },
+            tank: {
+                geometry: () => new THREE.SphereGeometry(0.7, 16, 16),
+                color: 0x27ae60,
+                emissive: 0x1e8449,
+                health: 100,
+                speed: 1.5,
+                damage: 25,
+                scale: 1.5,
+                weight: 15,
+                gemCount: () => Math.ceil(Math.random() * 3) + 2
+            },
+            exploder: {
+                geometry: () => new THREE.DodecahedronGeometry(0.5, 0),
+                color: 0xff6600,
+                emissive: 0xcc4400,
+                health: 25,
+                speed: 4,
+                damage: 8,
+                scale: 1,
+                weight: 20,
+                explosionRadius: 4,
+                explosionDamage: 30,
+                gemCount: () => Math.ceil(Math.random() * 2)
+            },
+            splitter: {
+                geometry: () => new THREE.IcosahedronGeometry(0.6, 0),
+                color: 0x00bcd4,
+                emissive: 0x008ba3,
+                health: 40,
+                speed: 2.5,
+                damage: 12,
+                scale: 1.2,
+                weight: 15,
+                splitCount: 3,
+                gemCount: () => 1
+            },
+            splitter_child: {
+                geometry: () => new THREE.IcosahedronGeometry(0.3, 0),
+                color: 0x4dd0e1,
+                emissive: 0x00acc1,
+                health: 15,
+                speed: 5,
+                damage: 5,
+                scale: 0.6,
+                weight: 0,
+                gemCount: () => 1
+            },
+            shooter: {
+                geometry: () => new THREE.OctahedronGeometry(0.5, 0),
+                color: 0xffeb3b,
+                emissive: 0xfbc02d,
+                health: 35,
+                speed: 2,
+                damage: 5,
+                scale: 1,
+                weight: 15,
+                shootRange: 15,
+                shootCooldown: 2,
+                projectileDamage: 15,
+                gemCount: () => Math.ceil(Math.random() * 2) + 1
+            },
+            ghost: {
+                geometry: () => new THREE.TetrahedronGeometry(0.6, 0),
+                color: 0xffffff,
+                emissive: 0xaaaaaa,
+                health: 20,
+                speed: 4,
+                damage: 15,
+                scale: 1,
+                weight: 10,
+                transparent: true,
+                phaseInterval: 1.5,
+                gemCount: () => Math.ceil(Math.random() * 2)
+            },
+            teleporter: {
+                geometry: () => new THREE.TorusGeometry(0.4, 0.15, 8, 16),
+                color: 0xff00ff,
+                emissive: 0xaa00aa,
+                health: 30,
+                speed: 3,
+                damage: 20,
+                scale: 1,
+                weight: 10,
+                teleportCooldown: 3,
+                teleportRange: 8,
+                gemCount: () => Math.ceil(Math.random() * 3)
+            },
+            elite_basic: {
+                geometry: () => new THREE.BoxGeometry(1, 1, 1),
+                color: 0xff0000,
+                emissive: 0xaa0000,
+                health: 150,
+                speed: 4,
+                damage: 20,
+                scale: 1.3,
+                weight: 20,
+                isElite: true,
+                gemCount: () => Math.ceil(Math.random() * 3) + 2
+            },
+            elite_fast: {
+                geometry: () => new THREE.ConeGeometry(0.5, 1.2, 8),
+                color: 0xff00ff,
+                emissive: 0xaa00aa,
+                health: 50,
+                speed: 10,
+                damage: 12,
+                scale: 1,
+                weight: 15,
+                isElite: true,
+                gemCount: () => Math.ceil(Math.random() * 2) + 1
+            },
+            boss: {
+                geometry: () => new THREE.BoxGeometry(1.5, 1.5, 1.5),
+                color: 0x8b0000,
+                emissive: 0x660000,
+                health: 500,
+                speed: 2,
+                damage: 40,
+                scale: 2.5,
+                weight: 0,
+                isBoss: true,
+                gemCount: () => 10 + Math.floor(Math.random() * 10)
+            }
+        };
 
         // Input
         const keys = {};
@@ -436,68 +624,170 @@
             scene.add(player);
         }
 
-        function createEnemy(x, z) {
-            const enemyGroup = new THREE.Group();
+        function getCurrentTier() {
+            for (let i = difficultyTiers.length - 1; i >= 0; i--) {
+                if (gameTime >= difficultyTiers[i].time) {
+                    return difficultyTiers[i];
+                }
+            }
+            return difficultyTiers[0];
+        }
 
-            // Random enemy type
-            const type = Math.random();
-            let geometry, material, health, speed, damage, scale;
+        function selectEnemyType() {
+            const tier = getCurrentTier();
+            const availableTypes = tier.enemies;
 
-            if (type < 0.7) {
-                // Basic enemy
-                geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-                material = new THREE.MeshStandardMaterial({
-                    color: 0xe74c3c,
-                    emissive: 0x922b21,
-                    emissiveIntensity: 0.2
-                });
-                health = 30 * difficultyMultiplier;
-                speed = 3;
-                damage = 10;
-                scale = 1;
-            } else if (type < 0.9) {
-                // Fast enemy
-                geometry = new THREE.ConeGeometry(0.4, 1, 8);
-                material = new THREE.MeshStandardMaterial({
-                    color: 0x9b59b6,
-                    emissive: 0x6c3483,
-                    emissiveIntensity: 0.3
-                });
-                health = 15 * difficultyMultiplier;
-                speed = 6;
-                damage = 5;
-                scale = 0.8;
-            } else {
-                // Tank enemy
-                geometry = new THREE.SphereGeometry(0.7, 16, 16);
-                material = new THREE.MeshStandardMaterial({
-                    color: 0x27ae60,
-                    emissive: 0x1e8449,
-                    emissiveIntensity: 0.2
-                });
-                health = 80 * difficultyMultiplier;
-                speed = 1.5;
-                damage = 25;
-                scale = 1.5;
+            // Weighted random selection
+            let totalWeight = 0;
+            const weights = [];
+            for (const typeName of availableTypes) {
+                const type = enemyTypes[typeName];
+                totalWeight += type.weight;
+                weights.push({ name: typeName, weight: type.weight });
             }
 
+            let random = Math.random() * totalWeight;
+            for (const w of weights) {
+                random -= w.weight;
+                if (random <= 0) {
+                    return w.name;
+                }
+            }
+            return availableTypes[0];
+        }
+
+        function createEnemy(x, z, forcedType = null) {
+            const enemyGroup = new THREE.Group();
+            const typeName = forcedType || selectEnemyType();
+            const type = enemyTypes[typeName];
+
+            const geometry = type.geometry();
+            const material = new THREE.MeshStandardMaterial({
+                color: type.color,
+                emissive: type.emissive,
+                emissiveIntensity: type.isElite ? 0.5 : 0.2,
+                transparent: type.transparent || false,
+                opacity: type.transparent ? 0.6 : 1
+            });
+
             const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.y = 0.5 * scale;
+            mesh.position.y = 0.5 * type.scale;
             mesh.castShadow = true;
-            mesh.scale.set(scale, scale, scale);
+            mesh.scale.set(type.scale, type.scale, type.scale);
             enemyGroup.add(mesh);
 
+            // Add glow ring for elite/boss enemies
+            if (type.isElite || type.isBoss) {
+                const ringGeometry = new THREE.RingGeometry(type.scale * 0.8, type.scale * 1.0, 32);
+                const ringMaterial = new THREE.MeshBasicMaterial({
+                    color: type.isBoss ? 0xff0000 : 0xffff00,
+                    transparent: true,
+                    opacity: 0.7,
+                    side: THREE.DoubleSide
+                });
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                ring.rotation.x = -Math.PI / 2;
+                ring.position.y = 0.05;
+                enemyGroup.add(ring);
+            }
+
             enemyGroup.position.set(x, 0, z);
+
+            const health = type.health * difficultyMultiplier;
             enemyGroup.userData = {
+                type: typeName,
                 health,
                 maxHealth: health,
-                speed,
-                damage,
-                lastDamageTime: 0
+                speed: type.speed,
+                damage: type.damage,
+                scale: type.scale,
+                lastDamageTime: 0,
+                lastShootTime: 0,
+                lastTeleportTime: 0,
+                lastPhaseTime: 0,
+                phased: false,
+                explosionRadius: type.explosionRadius,
+                explosionDamage: type.explosionDamage,
+                splitCount: type.splitCount,
+                shootRange: type.shootRange,
+                shootCooldown: type.shootCooldown,
+                projectileDamage: type.projectileDamage,
+                teleportCooldown: type.teleportCooldown,
+                teleportRange: type.teleportRange,
+                phaseInterval: type.phaseInterval,
+                isElite: type.isElite,
+                isBoss: type.isBoss,
+                gemCount: type.gemCount
             };
 
             scene.add(enemyGroup);
             enemies.push(enemyGroup);
+            return enemyGroup;
+        }
+
+        function createExplosion(x, z, radius, damage) {
+            // Visual explosion
+            const explosionGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+            const explosionMaterial = new THREE.MeshBasicMaterial({
+                color: 0xff6600,
+                transparent: true,
+                opacity: 0.8
+            });
+            const explosion = new THREE.Mesh(explosionGeometry, explosionMaterial);
+            explosion.position.set(x, 0.5, z);
+            scene.add(explosion);
+
+            // Animate explosion
+            let scale = 0.5;
+            const expandInterval = setInterval(() => {
+                scale += 0.5;
+                explosion.scale.set(scale, scale, scale);
+                explosion.material.opacity -= 0.1;
+
+                if (scale >= radius) {
+                    clearInterval(expandInterval);
+                    scene.remove(explosion);
+                }
+            }, 50);
+
+            // Damage player if in range
+            const distToPlayer = player.position.distanceTo(new THREE.Vector3(x, 0, z));
+            if (distToPlayer < radius) {
+                playerStats.health -= damage;
+                player.children[0].material.emissive.setHex(0xff6600);
+                setTimeout(() => {
+                    player.children[0].material.emissive.setHex(0x1a5276);
+                }, 200);
+
+                if (playerStats.health <= 0) {
+                    gameOver();
+                }
+            }
+        }
+
+        function createEnemyProjectile(fromPos, toPos, damage) {
+            const geometry = new THREE.SphereGeometry(0.15, 8, 8);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                transparent: true,
+                opacity: 0.9
+            });
+            const projectile = new THREE.Mesh(geometry, material);
+            projectile.position.copy(fromPos);
+            projectile.position.y = 1;
+
+            const direction = new THREE.Vector3();
+            direction.subVectors(toPos, fromPos).normalize();
+            direction.y = 0;
+
+            projectile.userData = {
+                velocity: direction.multiplyScalar(12),
+                damage: damage,
+                lifetime: 3
+            };
+
+            scene.add(projectile);
+            enemyProjectiles.push(projectile);
         }
 
         function createProjectile(direction, offset = 0) {
@@ -544,6 +834,15 @@
             gems.push(gem);
         }
 
+        function showWaveWarning(message) {
+            const warning = document.getElementById('wave-warning');
+            warning.textContent = message;
+            warning.style.opacity = '1';
+            setTimeout(() => {
+                warning.style.opacity = '0';
+            }, 2000);
+        }
+
         function spawnEnemies(deltaTime) {
             lastSpawnTime += deltaTime;
 
@@ -551,11 +850,30 @@
             difficultyMultiplier = 1 + (gameTime / 60) * 0.5;
             spawnInterval = Math.max(0.3, 2 - (gameTime / 60) * 0.3);
 
+            // Check for tier change
+            const newTier = getCurrentTier();
+            const tierIndex = difficultyTiers.indexOf(newTier) + 1;
+            if (tierIndex > currentDifficultyTier) {
+                currentDifficultyTier = tierIndex;
+                showWaveWarning(`DIFFICULTY ${newTier.name} - New enemies incoming!`);
+            }
+
+            // Spawn boss every 60 seconds after first minute
+            if (gameTime >= 60 && gameTime - lastBossSpawnTime >= 60) {
+                lastBossSpawnTime = gameTime;
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 35;
+                const x = player.position.x + Math.cos(angle) * distance;
+                const z = player.position.z + Math.sin(angle) * distance;
+                createEnemy(x, z, 'boss');
+                showWaveWarning('BOSS INCOMING!');
+            }
+
             if (lastSpawnTime >= spawnInterval) {
                 lastSpawnTime = 0;
 
                 // Spawn from outside the visible area
-                const spawnCount = Math.min(1 + Math.floor(gameTime / 30), 5);
+                const spawnCount = Math.min(1 + Math.floor(gameTime / 30), 8);
 
                 for (let i = 0; i < spawnCount; i++) {
                     const angle = Math.random() * Math.PI * 2;
@@ -636,23 +954,74 @@
         function updateEnemies(deltaTime) {
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const enemy = enemies[i];
+                const data = enemy.userData;
+                const distToPlayer = player.position.distanceTo(enemy.position);
 
-                // Move towards player
-                const direction = new THREE.Vector3();
-                direction.subVectors(player.position, enemy.position).normalize();
-                direction.y = 0;
-                enemy.position.add(direction.multiplyScalar(enemy.userData.speed * deltaTime));
+                // Ghost phasing behavior
+                if (data.phaseInterval) {
+                    if (gameTime - data.lastPhaseTime >= data.phaseInterval) {
+                        data.lastPhaseTime = gameTime;
+                        data.phased = !data.phased;
+                        enemy.children[0].material.opacity = data.phased ? 0.2 : 0.6;
+                    }
+                }
+
+                // Teleporter behavior
+                if (data.teleportCooldown && distToPlayer < 20) {
+                    if (gameTime - data.lastTeleportTime >= data.teleportCooldown) {
+                        data.lastTeleportTime = gameTime;
+                        // Teleport closer to player
+                        const angle = Math.random() * Math.PI * 2;
+                        const teleportDist = 3 + Math.random() * data.teleportRange;
+                        enemy.position.x = player.position.x + Math.cos(angle) * teleportDist;
+                        enemy.position.z = player.position.z + Math.sin(angle) * teleportDist;
+
+                        // Teleport visual effect
+                        enemy.children[0].material.emissive.setHex(0xffffff);
+                        setTimeout(() => {
+                            if (enemy.children[0]) {
+                                enemy.children[0].material.emissive.setHex(0xaa00aa);
+                            }
+                        }, 100);
+                    }
+                }
+
+                // Shooter behavior
+                if (data.shootRange && distToPlayer <= data.shootRange && distToPlayer > 3) {
+                    if (gameTime - data.lastShootTime >= data.shootCooldown) {
+                        data.lastShootTime = gameTime;
+                        createEnemyProjectile(enemy.position, player.position, data.projectileDamage);
+                    }
+                    // Shooters try to keep distance
+                    if (distToPlayer < 8) {
+                        const awayDirection = new THREE.Vector3();
+                        awayDirection.subVectors(enemy.position, player.position).normalize();
+                        awayDirection.y = 0;
+                        enemy.position.add(awayDirection.multiplyScalar(data.speed * 0.5 * deltaTime));
+                    }
+                } else {
+                    // Normal movement towards player
+                    const direction = new THREE.Vector3();
+                    direction.subVectors(player.position, enemy.position).normalize();
+                    direction.y = 0;
+                    enemy.position.add(direction.multiplyScalar(data.speed * deltaTime));
+                }
 
                 // Rotate enemy
                 enemy.children[0].rotation.y += deltaTime * 2;
                 enemy.children[0].rotation.x += deltaTime;
 
-                // Check collision with player
-                const distToPlayer = player.position.distanceTo(enemy.position);
-                if (distToPlayer < 1.5) {
-                    if (gameTime - enemy.userData.lastDamageTime > 0.5) {
-                        enemy.userData.lastDamageTime = gameTime;
-                        playerStats.health -= enemy.userData.damage;
+                // Rotate elite/boss ring
+                if (enemy.children[1]) {
+                    enemy.children[1].rotation.z += deltaTime * 3;
+                }
+
+                // Check collision with player (ghosts can only hit when not phased)
+                const collisionDist = data.isBoss ? 3 : 1.5;
+                if (distToPlayer < collisionDist && !data.phased) {
+                    if (gameTime - data.lastDamageTime > 0.5) {
+                        data.lastDamageTime = gameTime;
+                        playerStats.health -= data.damage;
 
                         // Flash player red
                         player.children[0].material.emissive.setHex(0xff0000);
@@ -667,12 +1036,80 @@
                     }
                 }
 
-                // Remove if too far
-                if (enemy.position.distanceTo(player.position) > 60) {
+                // Remove if too far (but not bosses)
+                if (!data.isBoss && distToPlayer > 60) {
                     scene.remove(enemy);
                     enemies.splice(i, 1);
                 }
             }
+        }
+
+        function updateEnemyProjectiles(deltaTime) {
+            for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+                const projectile = enemyProjectiles[i];
+
+                // Move projectile
+                projectile.position.add(projectile.userData.velocity.clone().multiplyScalar(deltaTime));
+                projectile.userData.lifetime -= deltaTime;
+
+                // Check collision with player
+                const distToPlayer = player.position.distanceTo(projectile.position);
+                if (distToPlayer < 1) {
+                    playerStats.health -= projectile.userData.damage;
+                    player.children[0].material.emissive.setHex(0xff0000);
+                    setTimeout(() => {
+                        player.children[0].material.emissive.setHex(0x1a5276);
+                    }, 100);
+
+                    scene.remove(projectile);
+                    enemyProjectiles.splice(i, 1);
+
+                    if (playerStats.health <= 0) {
+                        gameOver();
+                    }
+                    continue;
+                }
+
+                // Remove if expired
+                if (projectile.userData.lifetime <= 0) {
+                    scene.remove(projectile);
+                    enemyProjectiles.splice(i, 1);
+                }
+            }
+        }
+
+        function handleEnemyDeath(enemy, index) {
+            const data = enemy.userData;
+            const x = enemy.position.x;
+            const z = enemy.position.z;
+
+            // Exploder death
+            if (data.explosionRadius) {
+                createExplosion(x, z, data.explosionRadius, data.explosionDamage);
+            }
+
+            // Splitter death
+            if (data.splitCount) {
+                for (let i = 0; i < data.splitCount; i++) {
+                    const angle = (Math.PI * 2 / data.splitCount) * i;
+                    const offsetX = Math.cos(angle) * 1.5;
+                    const offsetZ = Math.sin(angle) * 1.5;
+                    createEnemy(x + offsetX, z + offsetZ, 'splitter_child');
+                }
+            }
+
+            // Drop gems
+            const gemCount = data.gemCount();
+            const gemValue = data.isBoss ? 3 : (data.isElite ? 2 : 1);
+            for (let k = 0; k < gemCount; k++) {
+                const offsetX = (Math.random() - 0.5) * 3;
+                const offsetZ = (Math.random() - 0.5) * 3;
+                createGem(x + offsetX, z + offsetZ, gemValue);
+            }
+
+            scene.remove(enemy);
+            enemies.splice(index, 1);
+            playerStats.killCount++;
         }
 
         function updateProjectiles(deltaTime) {
@@ -687,31 +1124,28 @@
                 let hit = false;
                 for (let j = enemies.length - 1; j >= 0; j--) {
                     const enemy = enemies[j];
+                    const data = enemy.userData;
+
+                    // Ghosts can only be hit when not phased
+                    if (data.phased) continue;
+
+                    const hitRadius = data.isBoss ? 2 : 1;
                     const dist = projectile.position.distanceTo(enemy.position);
 
-                    if (dist < 1) {
-                        enemy.userData.health -= projectile.userData.damage;
+                    if (dist < hitRadius) {
+                        data.health -= projectile.userData.damage;
 
                         // Flash enemy white
                         enemy.children[0].material.emissive.setHex(0xffffff);
+                        const originalEmissive = enemyTypes[data.type]?.emissive || 0x922b21;
                         setTimeout(() => {
                             if (enemy.children[0]) {
-                                enemy.children[0].material.emissive.setHex(0x922b21);
+                                enemy.children[0].material.emissive.setHex(originalEmissive);
                             }
                         }, 50);
 
-                        if (enemy.userData.health <= 0) {
-                            // Drop gems
-                            const gemCount = Math.ceil(Math.random() * 3);
-                            for (let k = 0; k < gemCount; k++) {
-                                const offsetX = (Math.random() - 0.5) * 2;
-                                const offsetZ = (Math.random() - 0.5) * 2;
-                                createGem(enemy.position.x + offsetX, enemy.position.z + offsetZ);
-                            }
-
-                            scene.remove(enemy);
-                            enemies.splice(j, 1);
-                            playerStats.killCount++;
+                        if (data.health <= 0) {
+                            handleEnemyDeath(enemy, j);
                         }
 
                         hit = true;
@@ -807,6 +1241,9 @@
                 `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
             document.getElementById('kill-count').textContent = `Kills: ${playerStats.killCount}`;
+
+            const tier = getCurrentTier();
+            document.getElementById('difficulty-tier').textContent = `Difficulty: ${tier.name}`;
         }
 
         function gameOver() {
@@ -851,19 +1288,23 @@
             // Clear enemies, projectiles, gems
             enemies.forEach(e => scene.remove(e));
             projectiles.forEach(p => scene.remove(p));
+            enemyProjectiles.forEach(p => scene.remove(p));
             gems.forEach(g => scene.remove(g));
             enemies = [];
             projectiles = [];
+            enemyProjectiles = [];
             gems = [];
 
             // Reset player position
             player.position.set(0, 0, 0);
 
-            // Reset game time
+            // Reset game time and difficulty
             gameTime = 0;
             lastAttackTime = 0;
             lastSpawnTime = 0;
             difficultyMultiplier = 1;
+            currentDifficultyTier = 1;
+            lastBossSpawnTime = -60;
 
             // Hide game over, show HUD
             document.getElementById('game-over-screen').style.display = 'none';
@@ -886,6 +1327,7 @@
                 updateEnemies(deltaTime);
                 attack(deltaTime);
                 updateProjectiles(deltaTime);
+                updateEnemyProjectiles(deltaTime);
                 updateGems(deltaTime);
                 updateHUD();
             }
