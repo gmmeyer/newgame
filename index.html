@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Survivor 3D</title>
+    <title>Survivor 3D - Retro Synth Edition</title>
     <style>
         * {
             margin: 0;
@@ -37,35 +37,38 @@
             width: 300px;
             height: 25px;
             background: rgba(0, 0, 0, 0.7);
-            border: 2px solid #fff;
+            border: 2px solid #0ff;
             border-radius: 5px;
             overflow: hidden;
+            box-shadow: 0 0 10px #0ff;
         }
         #health-bar {
             width: 100%;
             height: 100%;
             background: linear-gradient(to bottom, #ff6b6b, #c0392b);
             transition: width 0.2s;
+            box-shadow: inset 0 0 10px rgba(255,255,255,0.3);
         }
         #exp-bar-container {
             width: 300px;
             height: 15px;
             background: rgba(0, 0, 0, 0.7);
-            border: 2px solid #fff;
+            border: 2px solid #0ff;
             border-radius: 5px;
             overflow: hidden;
             margin-top: 5px;
+            box-shadow: 0 0 5px #0ff;
         }
         #exp-bar {
             width: 0%;
             height: 100%;
-            background: linear-gradient(to bottom, #3498db, #2980b9);
+            background: linear-gradient(to bottom, #0ff, #0aa);
             transition: width 0.2s;
         }
         #stats {
             margin-top: 10px;
-            color: #fff;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            color: #0ff;
+            text-shadow: 0 0 10px #0ff;
             font-size: 18px;
         }
         #stats div {
@@ -75,27 +78,39 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            color: #fff;
+            color: #0ff;
             font-size: 32px;
             font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            text-shadow: 0 0 20px #0ff;
+            font-family: 'Courier New', monospace;
         }
         #kill-count {
             position: absolute;
             top: 60px;
             right: 20px;
-            color: #fff;
+            color: #f0f;
             font-size: 20px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            text-shadow: 0 0 10px #f0f;
+        }
+        #combo-display {
+            position: absolute;
+            top: 90px;
+            right: 20px;
+            color: #ff0;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 15px #ff0;
+            opacity: 0;
+            transition: opacity 0.3s;
         }
         #difficulty-tier {
             position: absolute;
-            top: 100px;
+            top: 130px;
             right: 20px;
             color: #f1c40f;
             font-size: 18px;
             font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            text-shadow: 0 0 10px #f1c40f;
         }
         #wave-warning {
             position: absolute;
@@ -103,12 +118,26 @@
             left: 50%;
             transform: translate(-50%, -50%);
             color: #e74c3c;
-            font-size: 36px;
+            font-size: 48px;
             font-weight: bold;
-            text-shadow: 0 0 20px #c0392b;
+            text-shadow: 0 0 30px #e74c3c, 0 0 60px #e74c3c;
             opacity: 0;
             transition: opacity 0.5s;
             pointer-events: none;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 4px;
+        }
+
+        /* Low Health Warning Overlay */
+        #low-health-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0;
+            box-shadow: inset 0 0 100px 50px rgba(255, 0, 0, 0.5);
         }
 
         /* Level Up Screen */
@@ -119,16 +148,23 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             justify-content: center;
             align-items: center;
             flex-direction: column;
         }
         #level-up-screen h1 {
-            color: #f1c40f;
-            font-size: 48px;
+            color: #0ff;
+            font-size: 64px;
             margin-bottom: 40px;
-            text-shadow: 0 0 20px #f39c12;
+            text-shadow: 0 0 30px #0ff, 0 0 60px #0ff;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 8px;
+            animation: levelUpPulse 0.5s ease-in-out infinite alternate;
+        }
+        @keyframes levelUpPulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
         }
         #upgrade-options {
             display: flex;
@@ -137,27 +173,29 @@
         .upgrade-card {
             width: 200px;
             padding: 20px;
-            background: linear-gradient(to bottom, #2c3e50, #1a252f);
-            border: 3px solid #3498db;
+            background: linear-gradient(to bottom, rgba(0,255,255,0.1), rgba(0,100,100,0.2));
+            border: 2px solid #0ff;
             border-radius: 10px;
             color: #fff;
             cursor: pointer;
             transition: all 0.3s;
             text-align: center;
+            box-shadow: 0 0 20px rgba(0,255,255,0.3);
         }
         .upgrade-card:hover {
             transform: scale(1.1);
-            border-color: #f1c40f;
-            box-shadow: 0 0 30px rgba(241, 196, 15, 0.5);
+            border-color: #f0f;
+            box-shadow: 0 0 40px rgba(255,0,255,0.6);
         }
         .upgrade-card h3 {
-            color: #3498db;
+            color: #0ff;
             margin-bottom: 10px;
             font-size: 20px;
+            text-shadow: 0 0 10px #0ff;
         }
         .upgrade-card p {
             font-size: 14px;
-            color: #bdc3c7;
+            color: #aef;
         }
 
         /* Game Over Screen */
@@ -174,16 +212,19 @@
             flex-direction: column;
         }
         #game-over-screen h1 {
-            color: #e74c3c;
-            font-size: 64px;
+            color: #f00;
+            font-size: 72px;
             margin-bottom: 20px;
-            text-shadow: 0 0 20px #c0392b;
+            text-shadow: 0 0 30px #f00, 0 0 60px #f00;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 8px;
         }
         #final-stats {
-            color: #fff;
+            color: #0ff;
             font-size: 24px;
             margin-bottom: 40px;
             text-align: center;
+            text-shadow: 0 0 10px #0ff;
         }
         #final-stats div {
             margin: 10px 0;
@@ -191,16 +232,20 @@
         #restart-btn {
             padding: 15px 50px;
             font-size: 24px;
-            background: linear-gradient(to bottom, #27ae60, #1e8449);
-            border: none;
+            background: transparent;
+            border: 2px solid #0f0;
             border-radius: 10px;
-            color: #fff;
+            color: #0f0;
             cursor: pointer;
             transition: all 0.3s;
+            text-shadow: 0 0 10px #0f0;
+            box-shadow: 0 0 20px rgba(0,255,0,0.3);
+            font-family: 'Courier New', monospace;
         }
         #restart-btn:hover {
             transform: scale(1.1);
-            box-shadow: 0 0 30px rgba(39, 174, 96, 0.5);
+            box-shadow: 0 0 40px rgba(0,255,0,0.6);
+            background: rgba(0,255,0,0.1);
         }
 
         /* Start Screen */
@@ -210,41 +255,58 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: linear-gradient(135deg, #0a0a15 0%, #1a0a2e 50%, #0a1a1e 100%);
             display: flex;
             justify-content: center;
             align-items: center;
             flex-direction: column;
         }
         #start-screen h1 {
-            color: #e94560;
-            font-size: 72px;
-            margin-bottom: 20px;
-            text-shadow: 0 0 30px #e94560;
+            color: #0ff;
+            font-size: 80px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 30px #0ff, 0 0 60px #0ff, 0 0 90px #0ff;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 8px;
+            animation: titleGlow 2s ease-in-out infinite alternate;
         }
-        #start-screen p {
-            color: #fff;
-            font-size: 20px;
+        @keyframes titleGlow {
+            from { text-shadow: 0 0 30px #0ff, 0 0 60px #0ff; }
+            to { text-shadow: 0 0 50px #f0f, 0 0 100px #f0f, 0 0 150px #f0f; }
+        }
+        #start-screen .subtitle {
+            color: #f0f;
+            font-size: 24px;
             margin-bottom: 40px;
+            text-shadow: 0 0 15px #f0f;
+            letter-spacing: 4px;
         }
         #start-btn {
             padding: 20px 60px;
             font-size: 28px;
-            background: linear-gradient(to bottom, #e94560, #c23a51);
-            border: none;
+            background: transparent;
+            border: 3px solid #0ff;
             border-radius: 10px;
-            color: #fff;
+            color: #0ff;
             cursor: pointer;
             transition: all 0.3s;
+            text-shadow: 0 0 15px #0ff;
+            box-shadow: 0 0 30px rgba(0,255,255,0.4);
+            font-family: 'Courier New', monospace;
+            letter-spacing: 4px;
         }
         #start-btn:hover {
             transform: scale(1.1);
-            box-shadow: 0 0 40px rgba(233, 69, 96, 0.6);
+            border-color: #f0f;
+            color: #f0f;
+            box-shadow: 0 0 50px rgba(255,0,255,0.6);
+            text-shadow: 0 0 20px #f0f;
         }
         #controls-info {
             margin-top: 40px;
-            color: #7f8c8d;
+            color: #0aa;
             font-size: 16px;
+            text-shadow: 0 0 5px #0aa;
         }
     </style>
 </head>
@@ -253,10 +315,10 @@
         <!-- Start Screen -->
         <div id="start-screen">
             <h1>SURVIVOR 3D</h1>
-            <p>Survive the endless horde!</p>
-            <button id="start-btn">START GAME</button>
+            <p class="subtitle">RETRO SYNTH EDITION</p>
+            <button id="start-btn">[ START GAME ]</button>
             <div id="controls-info">
-                WASD to move | Survive as long as you can!
+                WASD to move | Survive the endless horde!
             </div>
         </div>
 
@@ -273,8 +335,10 @@
             </div>
             <div id="timer">00:00</div>
             <div id="kill-count">Kills: 0</div>
+            <div id="combo-display">COMBO x0</div>
             <div id="difficulty-tier">Difficulty: I</div>
             <div id="wave-warning"></div>
+            <div id="low-health-overlay"></div>
         </div>
 
         <!-- Level Up Screen -->
@@ -291,12 +355,975 @@
                 <div>Level Reached: <span id="final-level">1</span></div>
                 <div>Enemies Killed: <span id="final-kills">0</span></div>
             </div>
-            <button id="restart-btn">PLAY AGAIN</button>
+            <button id="restart-btn">[ PLAY AGAIN ]</button>
         </div>
     </div>
 
     <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/js/shaders/CopyShader.js"></script>
     <script>
+        // ============================================================
+        // RETRO SYNTH AUDIO SYSTEM
+        // ============================================================
+        class RetroAudio {
+            constructor() {
+                this.ctx = null;
+                this.masterGain = null;
+                this.initialized = false;
+            }
+
+            init() {
+                if (this.initialized) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.3;
+                this.masterGain.connect(this.ctx.destination);
+                this.initialized = true;
+            }
+
+            // Retro shoot sound - short blip
+            playShoot() {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(880, now);
+                osc.frequency.exponentialRampToValueAtTime(220, now + 0.1);
+                
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                
+                osc.start(now);
+                osc.stop(now + 0.1);
+            }
+
+            // Hit sound - noise burst with thump
+            playHit() {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                
+                // Noise burst
+                const bufferSize = this.ctx.sampleRate * 0.05;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.2));
+                }
+                
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                
+                const noiseGain = this.ctx.createGain();
+                noiseGain.gain.setValueAtTime(0.2, now);
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 2000;
+                
+                noise.connect(filter);
+                filter.connect(noiseGain);
+                noiseGain.connect(this.masterGain);
+                
+                noise.start(now);
+                
+                // Low thump
+                const osc = this.ctx.createOscillator();
+                const oscGain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
+                oscGain.gain.setValueAtTime(0.3, now);
+                oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                
+                osc.connect(oscGain);
+                oscGain.connect(this.masterGain);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            }
+
+            // Enemy death - descending tone
+            playEnemyDeath(isBoss = false) {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                
+                const duration = isBoss ? 0.5 : 0.2;
+                const startFreq = isBoss ? 400 : 600;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(startFreq, now);
+                osc.frequency.exponentialRampToValueAtTime(50, now + duration);
+                
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(3000, now);
+                filter.frequency.exponentialRampToValueAtTime(200, now + duration);
+                
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.masterGain);
+                
+                osc.start(now);
+                osc.stop(now + duration);
+                
+                // Add noise burst for boss
+                if (isBoss) {
+                    this.playExplosion();
+                }
+            }
+
+            // Explosion - layered noise and rumble
+            playExplosion() {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                
+                // Noise
+                const bufferSize = this.ctx.sampleRate * 0.4;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.15));
+                }
+                
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                
+                const noiseGain = this.ctx.createGain();
+                noiseGain.gain.setValueAtTime(0.4, now);
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(1000, now);
+                filter.frequency.exponentialRampToValueAtTime(100, now + 0.4);
+                
+                noise.connect(filter);
+                filter.connect(noiseGain);
+                noiseGain.connect(this.masterGain);
+                noise.start(now);
+                
+                // Low rumble
+                const osc = this.ctx.createOscillator();
+                const oscGain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(60, now);
+                osc.frequency.exponentialRampToValueAtTime(20, now + 0.5);
+                oscGain.gain.setValueAtTime(0.5, now);
+                oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                
+                osc.connect(oscGain);
+                oscGain.connect(this.masterGain);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            }
+
+            // Gem pickup - ascending arpeggio
+            playGemPickup() {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                
+                const notes = [523, 659, 784]; // C5, E5, G5
+                
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = 'square';
+                    osc.frequency.value = freq * (0.95 + Math.random() * 0.1);
+                    
+                    const startTime = now + i * 0.05;
+                    gain.gain.setValueAtTime(0, startTime);
+                    gain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.1);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.1);
+                });
+            }
+
+            // Level up - triumphant chord
+            playLevelUp() {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                
+                const chord = [261, 329, 392, 523]; // C major with octave
+                
+                chord.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = 'sawtooth';
+                    osc.frequency.value = freq;
+                    
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.15, now + 0.1);
+                    gain.gain.setValueAtTime(0.15, now + 0.3);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+                    
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.value = 2000;
+                    
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.masterGain);
+                    
+                    osc.start(now);
+                    osc.stop(now + 0.8);
+                });
+                
+                // Add sweep
+                const sweep = this.ctx.createOscillator();
+                const sweepGain = this.ctx.createGain();
+                sweep.type = 'sine';
+                sweep.frequency.setValueAtTime(200, now);
+                sweep.frequency.exponentialRampToValueAtTime(2000, now + 0.3);
+                sweepGain.gain.setValueAtTime(0.1, now);
+                sweepGain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                
+                sweep.connect(sweepGain);
+                sweepGain.connect(this.masterGain);
+                sweep.start(now);
+                sweep.stop(now + 0.3);
+            }
+
+            // Player hurt
+            playHurt() {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, now);
+                osc.frequency.setValueAtTime(150, now + 0.05);
+                osc.frequency.setValueAtTime(100, now + 0.1);
+                
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                
+                const distortion = this.ctx.createWaveShaper();
+                const curve = new Float32Array(256);
+                for (let i = 0; i < 256; i++) {
+                    const x = (i / 128) - 1;
+                    curve[i] = Math.tanh(x * 3);
+                }
+                distortion.curve = curve;
+                
+                osc.connect(distortion);
+                distortion.connect(gain);
+                gain.connect(this.masterGain);
+                
+                osc.start(now);
+                osc.stop(now + 0.2);
+            }
+
+            // Boss warning
+            playBossWarning() {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                
+                for (let i = 0; i < 3; i++) {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = 'square';
+                    const startTime = now + i * 0.3;
+                    osc.frequency.setValueAtTime(100, startTime);
+                    osc.frequency.exponentialRampToValueAtTime(200, startTime + 0.15);
+                    
+                    gain.gain.setValueAtTime(0, startTime);
+                    gain.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.25);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.25);
+                }
+            }
+        }
+
+        const audio = new RetroAudio();
+
+        // ============================================================
+        // PROCEDURAL TEXTURE GENERATORS
+        // ============================================================
+        const TextureGenerator = {
+            // Cyberpunk grid floor
+            createGroundTexture() {
+                const size = 512;
+                const canvas = document.createElement('canvas');
+                canvas.width = canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                
+                // Dark base
+                ctx.fillStyle = '#0a0a15';
+                ctx.fillRect(0, 0, size, size);
+                
+                // Hex pattern
+                ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
+                ctx.lineWidth = 1;
+                const hexSize = 30;
+                for (let row = 0; row < size / hexSize + 1; row++) {
+                    for (let col = 0; col < size / hexSize + 1; col++) {
+                        const x = col * hexSize * 1.5;
+                        const y = row * hexSize * Math.sqrt(3) + (col % 2) * hexSize * Math.sqrt(3) / 2;
+                        this.drawHex(ctx, x, y, hexSize / 2);
+                    }
+                }
+                
+                // Glowing grid lines
+                const gridSize = 64;
+                for (let i = 0; i <= size; i += gridSize) {
+                    // Horizontal
+                    const gradH = ctx.createLinearGradient(0, i - 2, 0, i + 2);
+                    gradH.addColorStop(0, 'rgba(0, 255, 255, 0)');
+                    gradH.addColorStop(0.5, 'rgba(0, 255, 255, 0.8)');
+                    gradH.addColorStop(1, 'rgba(0, 255, 255, 0)');
+                    ctx.fillStyle = gradH;
+                    ctx.fillRect(0, i - 2, size, 4);
+                    
+                    // Vertical
+                    const gradV = ctx.createLinearGradient(i - 2, 0, i + 2, 0);
+                    gradV.addColorStop(0, 'rgba(0, 255, 255, 0)');
+                    gradV.addColorStop(0.5, 'rgba(0, 255, 255, 0.8)');
+                    gradV.addColorStop(1, 'rgba(0, 255, 255, 0)');
+                    ctx.fillStyle = gradV;
+                    ctx.fillRect(i - 2, 0, 4, size);
+                }
+                
+                // Add some glow at intersections
+                ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
+                for (let x = 0; x <= size; x += gridSize) {
+                    for (let y = 0; y <= size; y += gridSize) {
+                        ctx.beginPath();
+                        ctx.arc(x, y, 4, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(4, 4);
+                return texture;
+            },
+            
+            drawHex(ctx, x, y, size) {
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = (Math.PI / 3) * i - Math.PI / 6;
+                    const px = x + size * Math.cos(angle);
+                    const py = y + size * Math.sin(angle);
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            },
+            
+            // Player energy texture
+            createPlayerTexture() {
+                const size = 128;
+                const canvas = document.createElement('canvas');
+                canvas.width = canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                
+                // Radial gradient - bright center
+                const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+                grad.addColorStop(0, '#ffffff');
+                grad.addColorStop(0.2, '#00ffff');
+                grad.addColorStop(0.5, '#0088aa');
+                grad.addColorStop(1, '#003344');
+                
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, size, size);
+                
+                // Energy lines
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 8; i++) {
+                    const angle = (Math.PI / 4) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(size/2, size/2);
+                    ctx.lineTo(
+                        size/2 + Math.cos(angle) * size/2,
+                        size/2 + Math.sin(angle) * size/2
+                    );
+                    ctx.stroke();
+                }
+                
+                return new THREE.CanvasTexture(canvas);
+            },
+            
+            // Enemy textures by type
+            createEnemyTexture(type) {
+                const size = 128;
+                const canvas = document.createElement('canvas');
+                canvas.width = canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                
+                const colors = {
+                    basic: { primary: '#ff3333', secondary: '#aa0000' },
+                    fast: { primary: '#aa00ff', secondary: '#660099' },
+                    tank: { primary: '#00ff66', secondary: '#008833' },
+                    exploder: { primary: '#ff6600', secondary: '#cc3300' },
+                    splitter: { primary: '#00ddff', secondary: '#0088aa' },
+                    shooter: { primary: '#ffff00', secondary: '#aaaa00' },
+                    ghost: { primary: '#ffffff', secondary: '#888888' },
+                    teleporter: { primary: '#ff00ff', secondary: '#aa00aa' },
+                    elite_basic: { primary: '#ff0000', secondary: '#ffaa00' },
+                    elite_fast: { primary: '#ff00ff', secondary: '#ffaa00' },
+                    boss: { primary: '#880000', secondary: '#ff0000' }
+                };
+                
+                const c = colors[type] || colors.basic;
+                
+                // Base gradient
+                const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+                grad.addColorStop(0, c.primary);
+                grad.addColorStop(0.7, c.secondary);
+                grad.addColorStop(1, '#000000');
+                
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, size, size);
+                
+                // Type-specific patterns
+                if (type === 'exploder') {
+                    // Warning stripes
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 8;
+                    for (let i = 0; i < size * 2; i += 20) {
+                        ctx.beginPath();
+                        ctx.moveTo(i, 0);
+                        ctx.lineTo(i - size, size);
+                        ctx.stroke();
+                    }
+                } else if (type === 'ghost') {
+                    // Static noise
+                    const imageData = ctx.getImageData(0, 0, size, size);
+                    for (let i = 0; i < imageData.data.length; i += 4) {
+                        const noise = Math.random() * 100 - 50;
+                        imageData.data[i] = Math.min(255, Math.max(0, imageData.data[i] + noise));
+                        imageData.data[i+1] = Math.min(255, Math.max(0, imageData.data[i+1] + noise));
+                        imageData.data[i+2] = Math.min(255, Math.max(0, imageData.data[i+2] + noise));
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+                } else if (type === 'teleporter') {
+                    // Swirl pattern
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    for (let i = 0; i < 100; i++) {
+                        const angle = i * 0.2;
+                        const r = i * 0.6;
+                        const x = size/2 + Math.cos(angle) * r;
+                        const y = size/2 + Math.sin(angle) * r;
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                } else if (type === 'boss') {
+                    // Glowing runes
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = 4;
+                    ctx.shadowColor = '#ff0000';
+                    ctx.shadowBlur = 10;
+                    const runeSize = 20;
+                    ctx.strokeRect(size/2 - runeSize, size/2 - runeSize, runeSize*2, runeSize*2);
+                    ctx.beginPath();
+                    ctx.moveTo(size/2, size/2 - runeSize - 10);
+                    ctx.lineTo(size/2, size/2 + runeSize + 10);
+                    ctx.moveTo(size/2 - runeSize - 10, size/2);
+                    ctx.lineTo(size/2 + runeSize + 10, size/2);
+                    ctx.stroke();
+                }
+                
+                return new THREE.CanvasTexture(canvas);
+            },
+            
+            // Projectile glow texture
+            createProjectileTexture(color = '#ffff00') {
+                const size = 64;
+                const canvas = document.createElement('canvas');
+                canvas.width = canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                
+                const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+                grad.addColorStop(0, '#ffffff');
+                grad.addColorStop(0.2, color);
+                grad.addColorStop(0.5, color);
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, size, size);
+                
+                return new THREE.CanvasTexture(canvas);
+            },
+            
+            // Gem sparkle texture
+            createGemTexture() {
+                const size = 64;
+                const canvas = document.createElement('canvas');
+                canvas.width = canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                
+                const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+                grad.addColorStop(0, '#ffffff');
+                grad.addColorStop(0.3, '#00ff88');
+                grad.addColorStop(0.6, '#00aa55');
+                grad.addColorStop(1, 'rgba(0,100,50,0)');
+                
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, size, size);
+                
+                // Sparkle cross
+                ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(size/2, 0);
+                ctx.lineTo(size/2, size);
+                ctx.moveTo(0, size/2);
+                ctx.lineTo(size, size/2);
+                ctx.stroke();
+                
+                return new THREE.CanvasTexture(canvas);
+            },
+            
+            // Particle sprite texture
+            createParticleTexture() {
+                const size = 32;
+                const canvas = document.createElement('canvas');
+                canvas.width = canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                
+                const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+                grad.addColorStop(0, 'rgba(255,255,255,1)');
+                grad.addColorStop(0.3, 'rgba(255,255,255,0.8)');
+                grad.addColorStop(0.7, 'rgba(255,255,255,0.3)');
+                grad.addColorStop(1, 'rgba(255,255,255,0)');
+                
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, size, size);
+                
+                return new THREE.CanvasTexture(canvas);
+            }
+        };
+
+        // Cache textures
+        const textureCache = {};
+        function getTexture(type) {
+            if (!textureCache[type]) {
+                switch(type) {
+                    case 'ground': textureCache[type] = TextureGenerator.createGroundTexture(); break;
+                    case 'player': textureCache[type] = TextureGenerator.createPlayerTexture(); break;
+                    case 'particle': textureCache[type] = TextureGenerator.createParticleTexture(); break;
+                    case 'gem': textureCache[type] = TextureGenerator.createGemTexture(); break;
+                    case 'projectile': textureCache[type] = TextureGenerator.createProjectileTexture('#ffff00'); break;
+                    case 'enemyProjectile': textureCache[type] = TextureGenerator.createProjectileTexture('#ff0000'); break;
+                    default:
+                        if (type.startsWith('enemy_')) {
+                            textureCache[type] = TextureGenerator.createEnemyTexture(type.replace('enemy_', ''));
+                        }
+                }
+            }
+            return textureCache[type];
+        }
+
+        // ============================================================
+        // PARTICLE SYSTEM
+        // ============================================================
+        class ParticleSystem {
+            constructor(maxParticles = 5000) {
+                this.maxParticles = maxParticles;
+                this.particleIndex = 0;
+                
+                // Create geometry
+                this.geometry = new THREE.BufferGeometry();
+                
+                this.positions = new Float32Array(maxParticles * 3);
+                this.colors = new Float32Array(maxParticles * 3);
+                this.sizes = new Float32Array(maxParticles);
+                this.alphas = new Float32Array(maxParticles);
+                
+                // Particle data (not in buffer)
+                this.velocities = new Float32Array(maxParticles * 3);
+                this.lifetimes = new Float32Array(maxParticles);
+                this.maxLifetimes = new Float32Array(maxParticles);
+                this.gravities = new Float32Array(maxParticles);
+                this.initialSizes = new Float32Array(maxParticles);
+                
+                // Initialize all particles as dead
+                this.lifetimes.fill(-1);
+                this.alphas.fill(0);
+                
+                this.geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3).setUsage(THREE.DynamicDrawUsage));
+                this.geometry.setAttribute('color', new THREE.BufferAttribute(this.colors, 3).setUsage(THREE.DynamicDrawUsage));
+                this.geometry.setAttribute('size', new THREE.BufferAttribute(this.sizes, 1).setUsage(THREE.DynamicDrawUsage));
+                this.geometry.setAttribute('alpha', new THREE.BufferAttribute(this.alphas, 1).setUsage(THREE.DynamicDrawUsage));
+                
+                // Custom shader material for particles
+                this.material = new THREE.ShaderMaterial({
+                    uniforms: {
+                        pointTexture: { value: getTexture('particle') }
+                    },
+                    vertexShader: `
+                        attribute float size;
+                        attribute float alpha;
+                        attribute vec3 color;
+                        varying vec3 vColor;
+                        varying float vAlpha;
+                        void main() {
+                            vColor = color;
+                            vAlpha = alpha;
+                            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                            gl_PointSize = size * (300.0 / -mvPosition.z);
+                            gl_Position = projectionMatrix * mvPosition;
+                        }
+                    `,
+                    fragmentShader: `
+                        uniform sampler2D pointTexture;
+                        varying vec3 vColor;
+                        varying float vAlpha;
+                        void main() {
+                            vec4 texColor = texture2D(pointTexture, gl_PointCoord);
+                            gl_FragColor = vec4(vColor, texColor.a * vAlpha);
+                        }
+                    `,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                    transparent: true
+                });
+                
+                this.points = new THREE.Points(this.geometry, this.material);
+            }
+            
+            emit(config) {
+                const {
+                    position,
+                    velocity = { x: 0, y: 0, z: 0 },
+                    color = { r: 1, g: 1, b: 1 },
+                    count = 10,
+                    spread = 1,
+                    speedVariation = 0.5,
+                    size = 1,
+                    lifetime = 1,
+                    gravity = 0
+                } = config;
+                
+                for (let i = 0; i < count; i++) {
+                    const idx = this.particleIndex;
+                    const idx3 = idx * 3;
+                    
+                    // Position with spread
+                    this.positions[idx3] = position.x + (Math.random() - 0.5) * spread;
+                    this.positions[idx3 + 1] = position.y + (Math.random() - 0.5) * spread;
+                    this.positions[idx3 + 2] = position.z + (Math.random() - 0.5) * spread;
+                    
+                    // Velocity with variation
+                    const speedMult = 1 + (Math.random() - 0.5) * speedVariation * 2;
+                    const randomDir = new THREE.Vector3(
+                        (Math.random() - 0.5) * 2,
+                        (Math.random() - 0.5) * 2,
+                        (Math.random() - 0.5) * 2
+                    ).normalize().multiplyScalar(spread * 2);
+                    
+                    this.velocities[idx3] = (velocity.x + randomDir.x) * speedMult;
+                    this.velocities[idx3 + 1] = (velocity.y + randomDir.y) * speedMult;
+                    this.velocities[idx3 + 2] = (velocity.z + randomDir.z) * speedMult;
+                    
+                    // Color with slight variation
+                    this.colors[idx3] = Math.min(1, color.r + (Math.random() - 0.5) * 0.2);
+                    this.colors[idx3 + 1] = Math.min(1, color.g + (Math.random() - 0.5) * 0.2);
+                    this.colors[idx3 + 2] = Math.min(1, color.b + (Math.random() - 0.5) * 0.2);
+                    
+                    // Other properties
+                    this.sizes[idx] = size * (0.5 + Math.random() * 0.5);
+                    this.initialSizes[idx] = this.sizes[idx];
+                    this.alphas[idx] = 1;
+                    this.lifetimes[idx] = lifetime;
+                    this.maxLifetimes[idx] = lifetime;
+                    this.gravities[idx] = gravity;
+                    
+                    // Cycle through particle pool
+                    this.particleIndex = (this.particleIndex + 1) % this.maxParticles;
+                }
+            }
+            
+            update(deltaTime) {
+                for (let i = 0; i < this.maxParticles; i++) {
+                    if (this.lifetimes[i] <= 0) continue;
+                    
+                    const idx3 = i * 3;
+                    
+                    // Update position
+                    this.positions[idx3] += this.velocities[idx3] * deltaTime;
+                    this.positions[idx3 + 1] += this.velocities[idx3 + 1] * deltaTime;
+                    this.positions[idx3 + 2] += this.velocities[idx3 + 2] * deltaTime;
+                    
+                    // Apply gravity
+                    this.velocities[idx3 + 1] -= this.gravities[i] * deltaTime;
+                    
+                    // Update lifetime
+                    this.lifetimes[i] -= deltaTime;
+                    
+                    // Calculate progress (0 to 1)
+                    const progress = 1 - (this.lifetimes[i] / this.maxLifetimes[i]);
+                    
+                    // Fade out and shrink
+                    this.alphas[i] = 1 - progress;
+                    this.sizes[i] = this.initialSizes[i] * (1 - progress * 0.5);
+                }
+                
+                // Update buffers
+                this.geometry.attributes.position.needsUpdate = true;
+                this.geometry.attributes.color.needsUpdate = true;
+                this.geometry.attributes.size.needsUpdate = true;
+                this.geometry.attributes.alpha.needsUpdate = true;
+            }
+        }
+
+        // ============================================================
+        // SCREEN SHAKE SYSTEM
+        // ============================================================
+        class ScreenShake {
+            constructor() {
+                this.trauma = 0;
+                this.traumaDecay = 2.0;
+                this.maxOffset = 0.8;
+                this.maxRotation = 0.03;
+                this.shakeTime = 0;
+            }
+            
+            addTrauma(amount) {
+                this.trauma = Math.min(1, this.trauma + amount);
+            }
+            
+            update(deltaTime, camera, originalPosition) {
+                if (this.trauma <= 0) return;
+                
+                this.shakeTime += deltaTime;
+                this.trauma = Math.max(0, this.trauma - this.traumaDecay * deltaTime);
+                
+                const shake = this.trauma * this.trauma; // Quadratic falloff
+                
+                // Use noise-like offset (simplified perlin using sin)
+                const offsetX = Math.sin(this.shakeTime * 50) * this.maxOffset * shake;
+                const offsetY = Math.sin(this.shakeTime * 60 + 100) * this.maxOffset * shake;
+                const rotation = Math.sin(this.shakeTime * 55 + 200) * this.maxRotation * shake;
+                
+                camera.position.x = originalPosition.x + offsetX;
+                camera.position.y = originalPosition.y + offsetY;
+                camera.rotation.z = rotation;
+            }
+        }
+
+        // ============================================================
+        // TIME CONTROLLER (Freeze Frames)
+        // ============================================================
+        class TimeController {
+            constructor() {
+                this.timeScale = 1;
+                this.freezeDuration = 0;
+            }
+            
+            freeze(duration) {
+                this.freezeDuration = Math.max(this.freezeDuration, duration);
+            }
+            
+            update(deltaTime) {
+                if (this.freezeDuration > 0) {
+                    this.freezeDuration -= deltaTime;
+                    return 0; // Return 0 delta time (frozen)
+                }
+                return deltaTime * this.timeScale;
+            }
+        }
+
+        // ============================================================
+        // FLOATING DAMAGE NUMBERS
+        // ============================================================
+        class DamageNumberSystem {
+            constructor(scene) {
+                this.scene = scene;
+                this.numbers = [];
+            }
+            
+            spawn(position, damage, isCrit = false) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256;
+                canvas.height = 128;
+                const ctx = canvas.getContext('2d');
+                
+                // Style based on damage
+                let color, fontSize;
+                if (isCrit || damage > 50) {
+                    color = '#ff4444';
+                    fontSize = 72;
+                } else if (damage > 20) {
+                    color = '#ffaa00';
+                    fontSize = 56;
+                } else {
+                    color = '#ffffff';
+                    fontSize = 48;
+                }
+                
+                ctx.font = `Bold ${fontSize}px Courier New`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // Glow effect
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = color;
+                ctx.fillText(Math.floor(damage), 128, 64);
+                
+                if (isCrit) {
+                    ctx.font = 'Bold 24px Courier New';
+                    ctx.fillText('CRIT!', 128, 100);
+                }
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                const material = new THREE.SpriteMaterial({
+                    map: texture,
+                    transparent: true,
+                    depthTest: false
+                });
+                
+                const sprite = new THREE.Sprite(material);
+                sprite.position.copy(position);
+                sprite.position.y += 1;
+                sprite.scale.set(2, 1, 1);
+                
+                this.scene.add(sprite);
+                
+                this.numbers.push({
+                    sprite,
+                    velocity: new THREE.Vector3(
+                        (Math.random() - 0.5) * 3,
+                        5 + Math.random() * 2,
+                        (Math.random() - 0.5) * 3
+                    ),
+                    lifetime: 1.5,
+                    elapsed: 0
+                });
+            }
+            
+            update(deltaTime) {
+                for (let i = this.numbers.length - 1; i >= 0; i--) {
+                    const num = this.numbers[i];
+                    num.elapsed += deltaTime;
+                    
+                    if (num.elapsed >= num.lifetime) {
+                        this.scene.remove(num.sprite);
+                        num.sprite.material.dispose();
+                        this.numbers.splice(i, 1);
+                        continue;
+                    }
+                    
+                    // Move upward with gravity
+                    num.sprite.position.add(num.velocity.clone().multiplyScalar(deltaTime));
+                    num.velocity.y -= 15 * deltaTime;
+                    
+                    // Fade out
+                    const alpha = 1 - (num.elapsed / num.lifetime);
+                    num.sprite.material.opacity = alpha;
+                    
+                    // Scale up slightly
+                    const scale = 1 + num.elapsed * 0.3;
+                    num.sprite.scale.set(2 * scale, 1 * scale, 1);
+                }
+            }
+        }
+
+        // ============================================================
+        // SHOCKWAVE EFFECT
+        // ============================================================
+        class ShockwaveSystem {
+            constructor(scene) {
+                this.scene = scene;
+                this.waves = [];
+            }
+            
+            spawn(position, color = 0x00ffff, maxRadius = 8) {
+                const geometry = new THREE.RingGeometry(0.1, 0.5, 32);
+                const material = new THREE.MeshBasicMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 1,
+                    side: THREE.DoubleSide
+                });
+                
+                const ring = new THREE.Mesh(geometry, material);
+                ring.position.copy(position);
+                ring.position.y = 0.1;
+                ring.rotation.x = -Math.PI / 2;
+                
+                this.scene.add(ring);
+                
+                this.waves.push({
+                    ring,
+                    maxRadius,
+                    currentRadius: 0.5,
+                    lifetime: 0.5,
+                    elapsed: 0
+                });
+            }
+            
+            update(deltaTime) {
+                for (let i = this.waves.length - 1; i >= 0; i--) {
+                    const wave = this.waves[i];
+                    wave.elapsed += deltaTime;
+                    
+                    if (wave.elapsed >= wave.lifetime) {
+                        this.scene.remove(wave.ring);
+                        wave.ring.geometry.dispose();
+                        wave.ring.material.dispose();
+                        this.waves.splice(i, 1);
+                        continue;
+                    }
+                    
+                    const progress = wave.elapsed / wave.lifetime;
+                    wave.currentRadius = wave.maxRadius * progress;
+                    
+                    // Update ring geometry
+                    wave.ring.geometry.dispose();
+                    wave.ring.geometry = new THREE.RingGeometry(
+                        wave.currentRadius - 0.3,
+                        wave.currentRadius,
+                        32
+                    );
+                    
+                    // Fade out
+                    wave.ring.material.opacity = 1 - progress;
+                }
+            }
+        }
+
+        // ============================================================
+        // MAIN GAME
+        // ============================================================
+        
         // Game State
         const GameState = {
             MENU: 'menu',
@@ -307,12 +1334,23 @@
         };
 
         let currentState = GameState.MENU;
-        let scene, camera, renderer;
+        let scene, camera, renderer, composer;
         let player, ground;
         let enemies = [];
         let projectiles = [];
         let gems = [];
         let clock;
+        
+        // Systems
+        let particleSystem;
+        let screenShake;
+        let timeController;
+        let damageNumbers;
+        let shockwaves;
+        
+        // Camera tracking
+        let cameraTargetPosition = new THREE.Vector3();
+        let cameraBasePosition = new THREE.Vector3();
 
         // Player stats
         let playerStats = {
@@ -330,6 +1368,11 @@
             killCount: 0
         };
 
+        // Combo system
+        let comboCount = 0;
+        let comboTimer = 0;
+        const COMBO_TIMEOUT = 2;
+
         // Game settings
         let gameTime = 0;
         let lastAttackTime = 0;
@@ -340,7 +1383,7 @@
         let lastBossSpawnTime = -60;
         let enemyProjectiles = [];
 
-        // Difficulty tiers and enemy unlocks
+        // Difficulty tiers
         const difficultyTiers = [
             { time: 0, name: 'I', enemies: ['basic', 'fast'] },
             { time: 30, name: 'II', enemies: ['basic', 'fast', 'tank'] },
@@ -363,7 +1406,8 @@
                 damage: 10,
                 scale: 1,
                 weight: 40,
-                gemCount: () => Math.ceil(Math.random() * 2)
+                gemCount: () => Math.ceil(Math.random() * 2),
+                deathParticles: { color: { r: 1, g: 0.2, b: 0.2 }, count: 30 }
             },
             fast: {
                 geometry: () => new THREE.ConeGeometry(0.4, 1, 8),
@@ -374,7 +1418,8 @@
                 damage: 5,
                 scale: 0.8,
                 weight: 25,
-                gemCount: () => 1
+                gemCount: () => 1,
+                deathParticles: { color: { r: 0.6, g: 0.2, b: 0.8 }, count: 20 }
             },
             tank: {
                 geometry: () => new THREE.SphereGeometry(0.7, 16, 16),
@@ -385,7 +1430,8 @@
                 damage: 25,
                 scale: 1.5,
                 weight: 15,
-                gemCount: () => Math.ceil(Math.random() * 3) + 2
+                gemCount: () => Math.ceil(Math.random() * 3) + 2,
+                deathParticles: { color: { r: 0.2, g: 0.8, b: 0.4 }, count: 50 }
             },
             exploder: {
                 geometry: () => new THREE.DodecahedronGeometry(0.5, 0),
@@ -398,7 +1444,8 @@
                 weight: 20,
                 explosionRadius: 4,
                 explosionDamage: 30,
-                gemCount: () => Math.ceil(Math.random() * 2)
+                gemCount: () => Math.ceil(Math.random() * 2),
+                deathParticles: { color: { r: 1, g: 0.4, b: 0 }, count: 60, size: 2.5 }
             },
             splitter: {
                 geometry: () => new THREE.IcosahedronGeometry(0.6, 0),
@@ -410,7 +1457,8 @@
                 scale: 1.2,
                 weight: 15,
                 splitCount: 3,
-                gemCount: () => 1
+                gemCount: () => 1,
+                deathParticles: { color: { r: 0, g: 0.8, b: 1 }, count: 25 }
             },
             splitter_child: {
                 geometry: () => new THREE.IcosahedronGeometry(0.3, 0),
@@ -421,7 +1469,8 @@
                 damage: 5,
                 scale: 0.6,
                 weight: 0,
-                gemCount: () => 1
+                gemCount: () => 1,
+                deathParticles: { color: { r: 0.3, g: 0.9, b: 1 }, count: 15 }
             },
             shooter: {
                 geometry: () => new THREE.OctahedronGeometry(0.5, 0),
@@ -435,7 +1484,8 @@
                 shootRange: 15,
                 shootCooldown: 2,
                 projectileDamage: 15,
-                gemCount: () => Math.ceil(Math.random() * 2) + 1
+                gemCount: () => Math.ceil(Math.random() * 2) + 1,
+                deathParticles: { color: { r: 1, g: 0.9, b: 0.2 }, count: 35 }
             },
             ghost: {
                 geometry: () => new THREE.TetrahedronGeometry(0.6, 0),
@@ -448,7 +1498,8 @@
                 weight: 10,
                 transparent: true,
                 phaseInterval: 1.5,
-                gemCount: () => Math.ceil(Math.random() * 2)
+                gemCount: () => Math.ceil(Math.random() * 2),
+                deathParticles: { color: { r: 1, g: 1, b: 1 }, count: 25 }
             },
             teleporter: {
                 geometry: () => new THREE.TorusGeometry(0.4, 0.15, 8, 16),
@@ -461,7 +1512,8 @@
                 weight: 10,
                 teleportCooldown: 3,
                 teleportRange: 8,
-                gemCount: () => Math.ceil(Math.random() * 3)
+                gemCount: () => Math.ceil(Math.random() * 3),
+                deathParticles: { color: { r: 1, g: 0, b: 1 }, count: 40 }
             },
             elite_basic: {
                 geometry: () => new THREE.BoxGeometry(1, 1, 1),
@@ -473,7 +1525,8 @@
                 scale: 1.3,
                 weight: 20,
                 isElite: true,
-                gemCount: () => Math.ceil(Math.random() * 3) + 2
+                gemCount: () => Math.ceil(Math.random() * 3) + 2,
+                deathParticles: { color: { r: 1, g: 0.8, b: 0 }, count: 60 }
             },
             elite_fast: {
                 geometry: () => new THREE.ConeGeometry(0.5, 1.2, 8),
@@ -485,7 +1538,8 @@
                 scale: 1,
                 weight: 15,
                 isElite: true,
-                gemCount: () => Math.ceil(Math.random() * 2) + 1
+                gemCount: () => Math.ceil(Math.random() * 2) + 1,
+                deathParticles: { color: { r: 1, g: 0, b: 1 }, count: 40 }
             },
             boss: {
                 geometry: () => new THREE.BoxGeometry(1.5, 1.5, 1.5),
@@ -497,7 +1551,8 @@
                 scale: 2.5,
                 weight: 0,
                 isBoss: true,
-                gemCount: () => 10 + Math.floor(Math.random() * 10)
+                gemCount: () => 10 + Math.floor(Math.random() * 10),
+                deathParticles: { color: { r: 1, g: 0, b: 0 }, count: 150, size: 3 }
             }
         };
 
@@ -520,8 +1575,8 @@
         function init() {
             // Scene
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x1a1a2e);
-            scene.fog = new THREE.Fog(0x1a1a2e, 30, 80);
+            scene.background = new THREE.Color(0x0a0a15);
+            scene.fog = new THREE.FogExp2(0x0a0a15, 0.02);
 
             // Camera
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -531,15 +1586,66 @@
             // Renderer
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ReinhardToneMapping;
+            renderer.toneMappingExposure = 1.5;
             document.getElementById('game-container').appendChild(renderer.domElement);
 
+            // Post-processing
+            composer = new THREE.EffectComposer(renderer);
+            
+            const renderPass = new THREE.RenderPass(scene, camera);
+            composer.addPass(renderPass);
+            
+            const bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(window.innerWidth, window.innerHeight),
+                1.5,    // strength
+                0.4,    // radius
+                0.85    // threshold
+            );
+            composer.addPass(bloomPass);
+            
+            // Vignette shader pass
+            const vignetteShader = {
+                uniforms: {
+                    tDiffuse: { value: null },
+                    darkness: { value: 1.0 },
+                    offset: { value: 1.0 }
+                },
+                vertexShader: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform sampler2D tDiffuse;
+                    uniform float darkness;
+                    uniform float offset;
+                    varying vec2 vUv;
+                    void main() {
+                        vec4 texel = texture2D(tDiffuse, vUv);
+                        vec2 uv = (vUv - vec2(0.5)) * vec2(offset);
+                        float vignette = clamp(pow(cos(uv.x * 3.14159) * cos(uv.y * 3.14159), 0.25), 0.0, 1.0);
+                        texel.rgb *= 1.0 - (1.0 - vignette) * darkness;
+                        gl_FragColor = texel;
+                    }
+                `
+            };
+            
+            const vignettePass = new THREE.ShaderPass(vignetteShader);
+            vignettePass.uniforms.darkness.value = 0.5;
+            vignettePass.uniforms.offset.value = 1.0;
+            composer.addPass(vignettePass);
+
             // Lighting
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+            const ambientLight = new THREE.AmbientLight(0x222244, 0.5);
             scene.add(ambientLight);
 
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            const directionalLight = new THREE.DirectionalLight(0x8888ff, 0.5);
             directionalLight.position.set(20, 40, 20);
             directionalLight.castShadow = true;
             directionalLight.shadow.mapSize.width = 2048;
@@ -552,30 +1658,31 @@
             directionalLight.shadow.camera.bottom = -50;
             scene.add(directionalLight);
 
-            // Point light on player
-            const playerLight = new THREE.PointLight(0x3498db, 1, 20);
-            playerLight.position.set(0, 5, 0);
-            scene.add(playerLight);
-
             // Ground
-            const groundGeometry = new THREE.PlaneGeometry(100, 100, 20, 20);
+            const groundGeometry = new THREE.PlaneGeometry(100, 100);
             const groundMaterial = new THREE.MeshStandardMaterial({
-                color: 0x2c3e50,
-                roughness: 0.8,
-                metalness: 0.2
+                map: getTexture('ground'),
+                roughness: 0.9,
+                metalness: 0.1,
+                emissive: 0x001111,
+                emissiveIntensity: 0.2
             });
             ground = new THREE.Mesh(groundGeometry, groundMaterial);
             ground.rotation.x = -Math.PI / 2;
             ground.receiveShadow = true;
             scene.add(ground);
 
-            // Grid overlay
-            const gridHelper = new THREE.GridHelper(100, 50, 0x3498db, 0x1a252f);
-            gridHelper.position.y = 0.01;
-            scene.add(gridHelper);
-
             // Player
             createPlayer();
+
+            // Initialize systems
+            particleSystem = new ParticleSystem(5000);
+            scene.add(particleSystem.points);
+            
+            screenShake = new ScreenShake();
+            timeController = new TimeController();
+            damageNumbers = new DamageNumberSystem(scene);
+            shockwaves = new ShockwaveSystem(scene);
 
             // Clock
             clock = new THREE.Clock();
@@ -595,24 +1702,37 @@
         function createPlayer() {
             const playerGroup = new THREE.Group();
 
-            // Body
+            // Body with emissive texture
             const bodyGeometry = new THREE.CapsuleGeometry(0.5, 1, 8, 16);
             const bodyMaterial = new THREE.MeshStandardMaterial({
-                color: 0x3498db,
-                emissive: 0x1a5276,
-                emissiveIntensity: 0.3
+                color: 0x00aaff,
+                emissive: 0x00ffff,
+                emissiveIntensity: 0.5,
+                roughness: 0.3,
+                metalness: 0.7
             });
             const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
             body.position.y = 1;
             body.castShadow = true;
             playerGroup.add(body);
 
+            // Inner glow core
+            const coreGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+            const coreMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.8
+            });
+            const core = new THREE.Mesh(coreGeometry, coreMaterial);
+            core.position.y = 1;
+            playerGroup.add(core);
+
             // Glow ring
             const ringGeometry = new THREE.RingGeometry(0.8, 1, 32);
             const ringMaterial = new THREE.MeshBasicMaterial({
-                color: 0x3498db,
+                color: 0x00ffff,
                 transparent: true,
-                opacity: 0.5,
+                opacity: 0.6,
                 side: THREE.DoubleSide
             });
             const ring = new THREE.Mesh(ringGeometry, ringMaterial);
@@ -620,7 +1740,26 @@
             ring.position.y = 0.05;
             playerGroup.add(ring);
 
+            // Outer ring
+            const outerRingGeometry = new THREE.RingGeometry(1.2, 1.3, 32);
+            const outerRingMaterial = new THREE.MeshBasicMaterial({
+                color: 0xff00ff,
+                transparent: true,
+                opacity: 0.4,
+                side: THREE.DoubleSide
+            });
+            const outerRing = new THREE.Mesh(outerRingGeometry, outerRingMaterial);
+            outerRing.rotation.x = -Math.PI / 2;
+            outerRing.position.y = 0.03;
+            playerGroup.add(outerRing);
+
+            // Point light on player
+            const playerLight = new THREE.PointLight(0x00ffff, 2, 15);
+            playerLight.position.set(0, 2, 0);
+            playerGroup.add(playerLight);
+
             player = playerGroup;
+            player.userData.light = playerLight;
             scene.add(player);
         }
 
@@ -637,7 +1776,6 @@
             const tier = getCurrentTier();
             const availableTypes = tier.enemies;
 
-            // Weighted random selection
             let totalWeight = 0;
             const weights = [];
             for (const typeName of availableTypes) {
@@ -665,9 +1803,11 @@
             const material = new THREE.MeshStandardMaterial({
                 color: type.color,
                 emissive: type.emissive,
-                emissiveIntensity: type.isElite ? 0.5 : 0.2,
+                emissiveIntensity: type.isElite ? 0.8 : (type.isBoss ? 1 : 0.4),
                 transparent: type.transparent || false,
-                opacity: type.transparent ? 0.6 : 1
+                opacity: type.transparent ? 0.6 : 1,
+                roughness: 0.5,
+                metalness: 0.5
             });
 
             const mesh = new THREE.Mesh(geometry, material);
@@ -682,13 +1822,20 @@
                 const ringMaterial = new THREE.MeshBasicMaterial({
                     color: type.isBoss ? 0xff0000 : 0xffff00,
                     transparent: true,
-                    opacity: 0.7,
+                    opacity: 0.8,
                     side: THREE.DoubleSide
                 });
                 const ring = new THREE.Mesh(ringGeometry, ringMaterial);
                 ring.rotation.x = -Math.PI / 2;
                 ring.position.y = 0.05;
                 enemyGroup.add(ring);
+                
+                // Add point light for boss
+                if (type.isBoss) {
+                    const bossLight = new THREE.PointLight(0xff0000, 2, 10);
+                    bossLight.position.set(0, 2, 0);
+                    enemyGroup.add(bossLight);
+                }
             }
 
             enemyGroup.position.set(x, 0, z);
@@ -717,7 +1864,8 @@
                 phaseInterval: type.phaseInterval,
                 isElite: type.isElite,
                 isBoss: type.isBoss,
-                gemCount: type.gemCount
+                gemCount: type.gemCount,
+                deathParticles: type.deathParticles
             };
 
             scene.add(enemyGroup);
@@ -725,38 +1873,87 @@
             return enemyGroup;
         }
 
-        function createExplosion(x, z, radius, damage) {
-            // Visual explosion
-            const explosionGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-            const explosionMaterial = new THREE.MeshBasicMaterial({
-                color: 0xff6600,
-                transparent: true,
-                opacity: 0.8
+        function playDeathEffect(enemy) {
+            const data = enemy.userData;
+            const pos = enemy.position.clone();
+            const deathConfig = data.deathParticles;
+            
+            // Particle burst
+            particleSystem.emit({
+                position: { x: pos.x, y: pos.y + 0.5, z: pos.z },
+                velocity: { x: 0, y: 8, z: 0 },
+                color: deathConfig.color,
+                count: deathConfig.count,
+                spread: data.scale * 0.5,
+                size: deathConfig.size || 1.5,
+                lifetime: 0.8,
+                gravity: 15
             });
-            const explosion = new THREE.Mesh(explosionGeometry, explosionMaterial);
-            explosion.position.set(x, 0.5, z);
-            scene.add(explosion);
+            
+            // Shockwave for larger enemies
+            if (data.isBoss || data.isElite || data.type === 'tank' || data.type === 'exploder') {
+                const color = data.isBoss ? 0xff0000 : (data.type === 'exploder' ? 0xff6600 : 0x00ffff);
+                shockwaves.spawn(pos, color, data.isBoss ? 15 : 8);
+            }
+            
+            // Screen shake
+            if (data.isBoss) {
+                screenShake.addTrauma(0.8);
+                timeController.freeze(0.2);
+                audio.playEnemyDeath(true);
+            } else if (data.isElite || data.type === 'tank') {
+                screenShake.addTrauma(0.3);
+                timeController.freeze(0.05);
+                audio.playEnemyDeath(false);
+            } else {
+                screenShake.addTrauma(0.1);
+                audio.playEnemyDeath(false);
+            }
+        }
 
-            // Animate explosion
-            let scale = 0.5;
-            const expandInterval = setInterval(() => {
-                scale += 0.5;
-                explosion.scale.set(scale, scale, scale);
-                explosion.material.opacity -= 0.1;
-
-                if (scale >= radius) {
-                    clearInterval(expandInterval);
-                    scene.remove(explosion);
-                }
-            }, 50);
+        function createExplosion(x, z, radius, damage) {
+            // Visual explosion with particles
+            particleSystem.emit({
+                position: { x, y: 1, z },
+                velocity: { x: 0, y: 10, z: 0 },
+                color: { r: 1, g: 0.4, b: 0 },
+                count: 80,
+                spread: 1,
+                size: 2.5,
+                lifetime: 1,
+                gravity: 10
+            });
+            
+            // Secondary particles
+            particleSystem.emit({
+                position: { x, y: 0.5, z },
+                velocity: { x: 0, y: 5, z: 0 },
+                color: { r: 1, g: 0.8, b: 0 },
+                count: 40,
+                spread: 2,
+                size: 1.5,
+                lifetime: 0.6,
+                gravity: 5
+            });
+            
+            // Shockwave
+            shockwaves.spawn(new THREE.Vector3(x, 0, z), 0xff6600, radius);
+            
+            // Screen shake
+            screenShake.addTrauma(0.5);
+            
+            // Sound
+            audio.playExplosion();
 
             // Damage player if in range
             const distToPlayer = player.position.distanceTo(new THREE.Vector3(x, 0, z));
             if (distToPlayer < radius) {
-                playerStats.health -= damage;
+                const damageAmount = damage * (1 - distToPlayer / radius);
+                playerStats.health -= damageAmount;
                 player.children[0].material.emissive.setHex(0xff6600);
+                audio.playHurt();
                 setTimeout(() => {
-                    player.children[0].material.emissive.setHex(0x1a5276);
+                    player.children[0].material.emissive.setHex(0x00ffff);
                 }, 200);
 
                 if (playerStats.health <= 0) {
@@ -766,7 +1963,7 @@
         }
 
         function createEnemyProjectile(fromPos, toPos, damage) {
-            const geometry = new THREE.SphereGeometry(0.15, 8, 8);
+            const geometry = new THREE.SphereGeometry(0.2, 8, 8);
             const material = new THREE.MeshBasicMaterial({
                 color: 0xff0000,
                 transparent: true,
@@ -791,11 +1988,11 @@
         }
 
         function createProjectile(direction, offset = 0) {
-            const geometry = new THREE.SphereGeometry(0.2, 8, 8);
+            const geometry = new THREE.SphereGeometry(0.25, 8, 8);
             const material = new THREE.MeshBasicMaterial({
-                color: 0xf1c40f,
+                color: 0xffff00,
                 transparent: true,
-                opacity: 0.9
+                opacity: 1
             });
             const projectile = new THREE.Mesh(geometry, material);
 
@@ -810,25 +2007,42 @@
             projectile.userData = {
                 velocity: direction.clone().multiplyScalar(playerStats.projectileSpeed),
                 damage: playerStats.damage,
-                lifetime: 2
+                lifetime: 2,
+                lastTrailTime: 0
             };
 
             scene.add(projectile);
             projectiles.push(projectile);
+            
+            // Muzzle flash particles
+            particleSystem.emit({
+                position: { x: player.position.x, y: 1, z: player.position.z },
+                velocity: { x: direction.x * 5, y: 2, z: direction.z * 5 },
+                color: { r: 1, g: 1, b: 0.5 },
+                count: 5,
+                spread: 0.2,
+                size: 0.8,
+                lifetime: 0.15,
+                gravity: 0
+            });
+            
+            audio.playShoot();
         }
 
         function createGem(x, z, value = 1) {
             const geometry = new THREE.OctahedronGeometry(0.3, 0);
             const material = new THREE.MeshStandardMaterial({
-                color: 0x2ecc71,
-                emissive: 0x27ae60,
-                emissiveIntensity: 0.5,
+                color: 0x00ff88,
+                emissive: 0x00ff88,
+                emissiveIntensity: 0.8,
                 transparent: true,
-                opacity: 0.8
+                opacity: 0.9,
+                roughness: 0.2,
+                metalness: 0.8
             });
             const gem = new THREE.Mesh(geometry, material);
             gem.position.set(x, 0.5, z);
-            gem.userData = { value };
+            gem.userData = { value, spawnTime: gameTime };
 
             scene.add(gem);
             gems.push(gem);
@@ -838,6 +2052,16 @@
             const warning = document.getElementById('wave-warning');
             warning.textContent = message;
             warning.style.opacity = '1';
+            
+            // Screen flash
+            const overlay = document.getElementById('low-health-overlay');
+            overlay.style.boxShadow = 'inset 0 0 100px 50px rgba(255, 100, 0, 0.5)';
+            overlay.style.opacity = '1';
+            setTimeout(() => {
+                overlay.style.opacity = '0';
+                overlay.style.boxShadow = 'inset 0 0 100px 50px rgba(255, 0, 0, 0.5)';
+            }, 300);
+            
             setTimeout(() => {
                 warning.style.opacity = '0';
             }, 2000);
@@ -846,19 +2070,18 @@
         function spawnEnemies(deltaTime) {
             lastSpawnTime += deltaTime;
 
-            // Increase difficulty over time
             difficultyMultiplier = 1 + (gameTime / 60) * 0.5;
             spawnInterval = Math.max(0.3, 2 - (gameTime / 60) * 0.3);
 
-            // Check for tier change
             const newTier = getCurrentTier();
             const tierIndex = difficultyTiers.indexOf(newTier) + 1;
             if (tierIndex > currentDifficultyTier) {
                 currentDifficultyTier = tierIndex;
-                showWaveWarning(`DIFFICULTY ${newTier.name} - New enemies incoming!`);
+                showWaveWarning(`DIFFICULTY ${newTier.name}`);
+                audio.playBossWarning();
             }
 
-            // Spawn boss every 60 seconds after first minute
+            // Spawn boss
             if (gameTime >= 60 && gameTime - lastBossSpawnTime >= 60) {
                 lastBossSpawnTime = gameTime;
                 const angle = Math.random() * Math.PI * 2;
@@ -867,12 +2090,13 @@
                 const z = player.position.z + Math.sin(angle) * distance;
                 createEnemy(x, z, 'boss');
                 showWaveWarning('BOSS INCOMING!');
+                audio.playBossWarning();
+                screenShake.addTrauma(0.5);
             }
 
             if (lastSpawnTime >= spawnInterval) {
                 lastSpawnTime = 0;
 
-                // Spawn from outside the visible area
                 const spawnCount = Math.min(1 + Math.floor(gameTime / 30), 8);
 
                 for (let i = 0; i < spawnCount; i++) {
@@ -914,11 +2138,15 @@
                     direction.subVectors(nearestEnemy.position, player.position).normalize();
                     direction.y = 0;
 
-                    // Multi-shot
                     const count = playerStats.projectileCount;
                     for (let i = 0; i < count; i++) {
                         const offset = count === 1 ? 0 : (i - (count - 1) / 2);
                         createProjectile(direction, offset);
+                    }
+                    
+                    // Pulse player light
+                    if (player.userData.light) {
+                        player.userData.light.intensity = 4;
                     }
                 }
             }
@@ -940,14 +2168,53 @@
                 // Boundary
                 player.position.x = Math.max(-45, Math.min(45, player.position.x));
                 player.position.z = Math.max(-45, Math.min(45, player.position.z));
+                
+                // Movement trail particles
+                if (Math.random() < 0.3) {
+                    particleSystem.emit({
+                        position: { x: player.position.x, y: 0.2, z: player.position.z },
+                        velocity: { x: -velocity.x * 2, y: 1, z: -velocity.z * 2 },
+                        color: { r: 0, g: 0.8, b: 1 },
+                        count: 1,
+                        spread: 0.1,
+                        size: 0.5,
+                        lifetime: 0.3,
+                        gravity: 0
+                    });
+                }
             }
 
-            // Rotate glow ring
-            player.children[1].rotation.z += deltaTime * 2;
+            // Rotate glow rings
+            player.children[2].rotation.z += deltaTime * 2;
+            player.children[3].rotation.z -= deltaTime * 1.5;
+            
+            // Pulse player light back to normal
+            if (player.userData.light) {
+                player.userData.light.intensity = THREE.MathUtils.lerp(
+                    player.userData.light.intensity, 2, deltaTime * 5
+                );
+            }
+            
+            // Pulse core
+            const pulseScale = 1 + Math.sin(gameTime * 5) * 0.1;
+            player.children[1].scale.set(pulseScale, pulseScale, pulseScale);
 
-            // Update camera to follow player
-            camera.position.x = player.position.x;
-            camera.position.z = player.position.z + 20;
+            // Update camera target with smooth follow
+            cameraTargetPosition.set(
+                player.position.x,
+                25,
+                player.position.z + 20
+            );
+        }
+
+        function updateCamera(deltaTime) {
+            // Smooth camera follow
+            cameraBasePosition.lerp(cameraTargetPosition, deltaTime * 3);
+            
+            // Apply screen shake
+            camera.position.copy(cameraBasePosition);
+            screenShake.update(deltaTime, camera, cameraBasePosition);
+            
             camera.lookAt(player.position.x, 0, player.position.z);
         }
 
@@ -970,13 +2237,36 @@
                 if (data.teleportCooldown && distToPlayer < 20) {
                     if (gameTime - data.lastTeleportTime >= data.teleportCooldown) {
                         data.lastTeleportTime = gameTime;
-                        // Teleport closer to player
+                        
+                        // Teleport particles at old position
+                        particleSystem.emit({
+                            position: { x: enemy.position.x, y: 1, z: enemy.position.z },
+                            velocity: { x: 0, y: 3, z: 0 },
+                            color: { r: 1, g: 0, b: 1 },
+                            count: 20,
+                            spread: 0.5,
+                            size: 1,
+                            lifetime: 0.3,
+                            gravity: 0
+                        });
+                        
                         const angle = Math.random() * Math.PI * 2;
                         const teleportDist = 3 + Math.random() * data.teleportRange;
                         enemy.position.x = player.position.x + Math.cos(angle) * teleportDist;
                         enemy.position.z = player.position.z + Math.sin(angle) * teleportDist;
 
-                        // Teleport visual effect
+                        // Teleport particles at new position
+                        particleSystem.emit({
+                            position: { x: enemy.position.x, y: 1, z: enemy.position.z },
+                            velocity: { x: 0, y: 3, z: 0 },
+                            color: { r: 1, g: 0, b: 1 },
+                            count: 20,
+                            spread: 0.5,
+                            size: 1,
+                            lifetime: 0.3,
+                            gravity: 0
+                        });
+
                         enemy.children[0].material.emissive.setHex(0xffffff);
                         setTimeout(() => {
                             if (enemy.children[0]) {
@@ -992,7 +2282,6 @@
                         data.lastShootTime = gameTime;
                         createEnemyProjectile(enemy.position, player.position, data.projectileDamage);
                     }
-                    // Shooters try to keep distance
                     if (distToPlayer < 8) {
                         const awayDirection = new THREE.Vector3();
                         awayDirection.subVectors(enemy.position, player.position).normalize();
@@ -1000,7 +2289,6 @@
                         enemy.position.add(awayDirection.multiplyScalar(data.speed * 0.5 * deltaTime));
                     }
                 } else {
-                    // Normal movement towards player
                     const direction = new THREE.Vector3();
                     direction.subVectors(player.position, enemy.position).normalize();
                     direction.y = 0;
@@ -1012,21 +2300,27 @@
                 enemy.children[0].rotation.x += deltaTime;
 
                 // Rotate elite/boss ring
-                if (enemy.children[1]) {
+                if (enemy.children[1] && (data.isElite || data.isBoss)) {
                     enemy.children[1].rotation.z += deltaTime * 3;
                 }
 
-                // Check collision with player (ghosts can only hit when not phased)
+                // Check collision with player
                 const collisionDist = data.isBoss ? 3 : 1.5;
                 if (distToPlayer < collisionDist && !data.phased) {
                     if (gameTime - data.lastDamageTime > 0.5) {
                         data.lastDamageTime = gameTime;
                         playerStats.health -= data.damage;
+                        
+                        // Reset combo on hit
+                        comboCount = 0;
+                        updateComboDisplay();
 
-                        // Flash player red
                         player.children[0].material.emissive.setHex(0xff0000);
+                        audio.playHurt();
+                        screenShake.addTrauma(0.2 + data.damage / 100);
+                        
                         setTimeout(() => {
-                            player.children[0].material.emissive.setHex(0x1a5276);
+                            player.children[0].material.emissive.setHex(0x00ffff);
                         }, 100);
 
                         if (playerStats.health <= 0) {
@@ -1036,7 +2330,7 @@
                     }
                 }
 
-                // Remove if too far (but not bosses)
+                // Remove if too far
                 if (!data.isBoss && distToPlayer > 60) {
                     scene.remove(enemy);
                     enemies.splice(i, 1);
@@ -1048,19 +2342,32 @@
             for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
                 const projectile = enemyProjectiles[i];
 
-                // Move projectile
                 projectile.position.add(projectile.userData.velocity.clone().multiplyScalar(deltaTime));
                 projectile.userData.lifetime -= deltaTime;
+                
+                // Trail
+                particleSystem.emit({
+                    position: { x: projectile.position.x, y: projectile.position.y, z: projectile.position.z },
+                    velocity: { x: 0, y: 0, z: 0 },
+                    color: { r: 1, g: 0.2, b: 0.2 },
+                    count: 1,
+                    spread: 0.05,
+                    size: 0.4,
+                    lifetime: 0.15,
+                    gravity: 0
+                });
 
-                // Check collision with player (2D distance, ignore Y)
                 const dx = player.position.x - projectile.position.x;
                 const dz = player.position.z - projectile.position.z;
                 const distToPlayer = Math.sqrt(dx * dx + dz * dz);
                 if (distToPlayer < 1) {
                     playerStats.health -= projectile.userData.damage;
                     player.children[0].material.emissive.setHex(0xff0000);
+                    audio.playHurt();
+                    screenShake.addTrauma(0.15);
+                    
                     setTimeout(() => {
-                        player.children[0].material.emissive.setHex(0x1a5276);
+                        player.children[0].material.emissive.setHex(0x00ffff);
                     }, 100);
 
                     scene.remove(projectile);
@@ -1072,7 +2379,6 @@
                     continue;
                 }
 
-                // Remove if expired
                 if (projectile.userData.lifetime <= 0) {
                     scene.remove(projectile);
                     enemyProjectiles.splice(i, 1);
@@ -1084,6 +2390,14 @@
             const data = enemy.userData;
             const x = enemy.position.x;
             const z = enemy.position.z;
+
+            // Play death effect
+            playDeathEffect(enemy);
+            
+            // Update combo
+            comboCount++;
+            comboTimer = COMBO_TIMEOUT;
+            updateComboDisplay();
 
             // Exploder death
             if (data.explosionRadius) {
@@ -1109,6 +2423,13 @@
                 createGem(x + offsetX, z + offsetZ, gemValue);
             }
 
+            // Damage number
+            damageNumbers.spawn(
+                new THREE.Vector3(x, 1, z),
+                data.maxHealth,
+                data.isBoss || data.isElite
+            );
+
             scene.remove(enemy);
             enemies.splice(index, 1);
             playerStats.killCount++;
@@ -1118,17 +2439,30 @@
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const projectile = projectiles[i];
 
-                // Move projectile
                 projectile.position.add(projectile.userData.velocity.clone().multiplyScalar(deltaTime));
                 projectile.userData.lifetime -= deltaTime;
+                
+                // Trail particles
+                projectile.userData.lastTrailTime += deltaTime;
+                if (projectile.userData.lastTrailTime > 0.02) {
+                    projectile.userData.lastTrailTime = 0;
+                    particleSystem.emit({
+                        position: { x: projectile.position.x, y: projectile.position.y, z: projectile.position.z },
+                        velocity: { x: 0, y: 0, z: 0 },
+                        color: { r: 1, g: 0.9, b: 0.3 },
+                        count: 1,
+                        spread: 0.05,
+                        size: 0.5,
+                        lifetime: 0.15,
+                        gravity: 0
+                    });
+                }
 
-                // Check collision with enemies (2D distance, ignore Y)
                 let hit = false;
                 for (let j = enemies.length - 1; j >= 0; j--) {
                     const enemy = enemies[j];
                     const data = enemy.userData;
 
-                    // Ghosts can only be hit when not phased
                     if (data.phased) continue;
 
                     const hitRadius = data.isBoss ? 2 : 1;
@@ -1138,6 +2472,27 @@
 
                     if (dist < hitRadius) {
                         data.health -= projectile.userData.damage;
+                        
+                        // Hit spark particles
+                        particleSystem.emit({
+                            position: { x: projectile.position.x, y: projectile.position.y, z: projectile.position.z },
+                            velocity: { x: -projectile.userData.velocity.x * 0.2, y: 5, z: -projectile.userData.velocity.z * 0.2 },
+                            color: { r: 1, g: 0.8, b: 0.2 },
+                            count: 8,
+                            spread: 0.3,
+                            size: 0.8,
+                            lifetime: 0.2,
+                            gravity: 10
+                        });
+                        
+                        audio.playHit();
+                        
+                        // Small damage number
+                        damageNumbers.spawn(
+                            new THREE.Vector3(enemy.position.x, 1.5, enemy.position.z),
+                            projectile.userData.damage,
+                            false
+                        );
 
                         // Flash enemy white
                         enemy.children[0].material.emissive.setHex(0xffffff);
@@ -1157,7 +2512,6 @@
                     }
                 }
 
-                // Remove projectile if hit or expired
                 if (hit || projectile.userData.lifetime <= 0) {
                     scene.remove(projectile);
                     projectiles.splice(i, 1);
@@ -1172,22 +2526,51 @@
                 // Rotate gems
                 gem.rotation.y += deltaTime * 3;
                 gem.position.y = 0.5 + Math.sin(gameTime * 3 + i) * 0.1;
+                
+                // Sparkle particles occasionally
+                if (Math.random() < 0.02) {
+                    particleSystem.emit({
+                        position: { x: gem.position.x, y: gem.position.y, z: gem.position.z },
+                        velocity: { x: 0, y: 2, z: 0 },
+                        color: { r: 0.2, g: 1, b: 0.5 },
+                        count: 1,
+                        spread: 0.2,
+                        size: 0.4,
+                        lifetime: 0.4,
+                        gravity: -2
+                    });
+                }
 
                 // Magnet effect when close to player
                 const dist = player.position.distanceTo(gem.position);
                 if (dist < 5) {
                     const direction = new THREE.Vector3();
                     direction.subVectors(player.position, gem.position).normalize();
-                    gem.position.add(direction.multiplyScalar(10 * deltaTime));
+                    const speed = 10 * (1 - dist / 5) + 5;
+                    gem.position.add(direction.multiplyScalar(speed * deltaTime));
                 }
 
                 // Collect gem
                 if (dist < 1) {
                     playerStats.exp += gem.userData.value;
+                    
+                    // Pickup particles
+                    particleSystem.emit({
+                        position: { x: gem.position.x, y: gem.position.y, z: gem.position.z },
+                        velocity: { x: 0, y: 5, z: 0 },
+                        color: { r: 0.2, g: 1, b: 0.5 },
+                        count: 10,
+                        spread: 0.3,
+                        size: 0.6,
+                        lifetime: 0.4,
+                        gravity: -5
+                    });
+                    
+                    audio.playGemPickup();
+                    
                     scene.remove(gem);
                     gems.splice(i, 1);
 
-                    // Check level up
                     if (playerStats.exp >= playerStats.expToLevel) {
                         levelUp();
                     }
@@ -1195,10 +2578,37 @@
             }
         }
 
+        function updateComboDisplay() {
+            const display = document.getElementById('combo-display');
+            if (comboCount >= 3) {
+                display.textContent = `COMBO x${comboCount}!`;
+                display.style.opacity = '1';
+                display.style.transform = `scale(${1 + comboCount * 0.02})`;
+            } else {
+                display.style.opacity = '0';
+            }
+        }
+
         function levelUp() {
             playerStats.exp -= playerStats.expToLevel;
             playerStats.expToLevel = Math.floor(playerStats.expToLevel * 1.5);
             playerStats.level++;
+
+            // Level up effects
+            particleSystem.emit({
+                position: { x: player.position.x, y: 1, z: player.position.z },
+                velocity: { x: 0, y: 8, z: 0 },
+                color: { r: 1, g: 0.9, b: 0.2 },
+                count: 80,
+                spread: 1,
+                size: 1.5,
+                lifetime: 1.2,
+                gravity: 5
+            });
+            
+            shockwaves.spawn(player.position.clone(), 0xffff00, 10);
+            screenShake.addTrauma(0.2);
+            audio.playLevelUp();
 
             currentState = GameState.LEVEL_UP;
             showLevelUpScreen();
@@ -1209,7 +2619,6 @@
             const options = document.getElementById('upgrade-options');
             options.innerHTML = '';
 
-            // Pick 3 random upgrades
             const shuffled = [...upgrades].sort(() => Math.random() - 0.5);
             const choices = shuffled.slice(0, 3);
 
@@ -1220,6 +2629,7 @@
                 card.addEventListener('click', () => {
                     upgrade.apply();
                     hideLevelUpScreen();
+                    audio.playGemPickup();
                 });
                 options.appendChild(card);
             });
@@ -1233,8 +2643,8 @@
         }
 
         function updateHUD() {
-            document.getElementById('health-bar').style.width =
-                (playerStats.health / playerStats.maxHealth * 100) + '%';
+            const healthPercent = playerStats.health / playerStats.maxHealth;
+            document.getElementById('health-bar').style.width = (healthPercent * 100) + '%';
             document.getElementById('exp-bar').style.width =
                 (playerStats.exp / playerStats.expToLevel * 100) + '%';
             document.getElementById('level').textContent = playerStats.level;
@@ -1248,6 +2658,15 @@
 
             const tier = getCurrentTier();
             document.getElementById('difficulty-tier').textContent = `Difficulty: ${tier.name}`;
+            
+            // Low health warning
+            const overlay = document.getElementById('low-health-overlay');
+            if (healthPercent < 0.3) {
+                const pulse = Math.sin(gameTime * 8) * 0.5 + 0.5;
+                overlay.style.opacity = (0.3 + pulse * 0.4) * (1 - healthPercent / 0.3);
+            } else {
+                overlay.style.opacity = '0';
+            }
         }
 
         function gameOver() {
@@ -1265,15 +2684,17 @@
         }
 
         function startGame() {
+            audio.init();
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('hud').style.display = 'block';
             currentState = GameState.PLAYING;
+            cameraBasePosition.copy(camera.position);
+            cameraTargetPosition.copy(camera.position);
             clock.start();
             animate();
         }
 
         function restartGame() {
-            // Reset player stats
             playerStats = {
                 health: 100,
                 maxHealth: 100,
@@ -1289,7 +2710,6 @@
                 killCount: 0
             };
 
-            // Clear enemies, projectiles, gems
             enemies.forEach(e => scene.remove(e));
             projectiles.forEach(p => scene.remove(p));
             enemyProjectiles.forEach(p => scene.remove(p));
@@ -1299,18 +2719,22 @@
             enemyProjectiles = [];
             gems = [];
 
-            // Reset player position
             player.position.set(0, 0, 0);
 
-            // Reset game time and difficulty
             gameTime = 0;
             lastAttackTime = 0;
             lastSpawnTime = 0;
             difficultyMultiplier = 1;
             currentDifficultyTier = 1;
             lastBossSpawnTime = -60;
+            comboCount = 0;
+            comboTimer = 0;
 
-            // Hide game over, show HUD
+            cameraBasePosition.set(0, 25, 20);
+            cameraTargetPosition.set(0, 25, 20);
+            camera.position.copy(cameraBasePosition);
+            screenShake.trauma = 0;
+
             document.getElementById('game-over-screen').style.display = 'none';
             document.getElementById('hud').style.display = 'block';
 
@@ -1321,12 +2745,23 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            const deltaTime = Math.min(clock.getDelta(), 0.1);
+            const rawDeltaTime = Math.min(clock.getDelta(), 0.1);
+            const deltaTime = timeController.update(rawDeltaTime);
 
             if (currentState === GameState.PLAYING) {
                 gameTime += deltaTime;
+                
+                // Update combo timer
+                if (comboTimer > 0) {
+                    comboTimer -= deltaTime;
+                    if (comboTimer <= 0) {
+                        comboCount = 0;
+                        updateComboDisplay();
+                    }
+                }
 
                 updatePlayer(deltaTime);
+                updateCamera(deltaTime);
                 spawnEnemies(deltaTime);
                 updateEnemies(deltaTime);
                 attack(deltaTime);
@@ -1335,14 +2770,20 @@
                 updateGems(deltaTime);
                 updateHUD();
             }
+            
+            // Always update visual systems
+            particleSystem.update(rawDeltaTime);
+            damageNumbers.update(rawDeltaTime);
+            shockwaves.update(rawDeltaTime);
 
-            renderer.render(scene, camera);
+            composer.render();
         }
 
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
         }
 
         // Start
