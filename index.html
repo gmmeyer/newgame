@@ -295,7 +295,7 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
     <script>
         // Game State
         const GameState = {
@@ -1052,8 +1052,10 @@
                 projectile.position.add(projectile.userData.velocity.clone().multiplyScalar(deltaTime));
                 projectile.userData.lifetime -= deltaTime;
 
-                // Check collision with player
-                const distToPlayer = player.position.distanceTo(projectile.position);
+                // Check collision with player (2D distance, ignore Y)
+                const dx = player.position.x - projectile.position.x;
+                const dz = player.position.z - projectile.position.z;
+                const distToPlayer = Math.sqrt(dx * dx + dz * dz);
                 if (distToPlayer < 1) {
                     playerStats.health -= projectile.userData.damage;
                     player.children[0].material.emissive.setHex(0xff0000);
@@ -1120,7 +1122,7 @@
                 projectile.position.add(projectile.userData.velocity.clone().multiplyScalar(deltaTime));
                 projectile.userData.lifetime -= deltaTime;
 
-                // Check collision with enemies
+                // Check collision with enemies (2D distance, ignore Y)
                 let hit = false;
                 for (let j = enemies.length - 1; j >= 0; j--) {
                     const enemy = enemies[j];
@@ -1130,7 +1132,9 @@
                     if (data.phased) continue;
 
                     const hitRadius = data.isBoss ? 2 : 1;
-                    const dist = projectile.position.distanceTo(enemy.position);
+                    const dx = projectile.position.x - enemy.position.x;
+                    const dz = projectile.position.z - enemy.position.z;
+                    const dist = Math.sqrt(dx * dx + dz * dz);
 
                     if (dist < hitRadius) {
                         data.health -= projectile.userData.damage;
