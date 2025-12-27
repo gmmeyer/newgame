@@ -178,16 +178,16 @@ export const TextureGenerator = {
     
     createBasicEnemyTexture(ctx, size) {
         const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-        grad.addColorStop(0, '#ff6666');
-        grad.addColorStop(0.4, '#cc3333');
-        grad.addColorStop(0.8, '#880000');
-        grad.addColorStop(1, '#330000');
+        grad.addColorStop(0, '#ff4444');
+        grad.addColorStop(0.3, '#ff2222');
+        grad.addColorStop(0.6, '#dd0000');
+        grad.addColorStop(1, '#aa0000');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, size, size);
         
-        ctx.strokeStyle = 'rgba(255, 100, 100, 0.5)';
-        ctx.lineWidth = 3;
-        const gridStep = size / 8;
+        ctx.strokeStyle = '#ff8888';
+        ctx.lineWidth = 4;
+        const gridStep = size / 6;
         for (let i = 0; i <= size; i += gridStep) {
             ctx.beginPath();
             ctx.moveTo(i, 0); ctx.lineTo(i, size);
@@ -195,10 +195,16 @@ export const TextureGenerator = {
             ctx.stroke();
         }
         
-        ctx.fillStyle = 'rgba(255, 200, 200, 0.8)';
+        ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(size * 0.35, size * 0.4, 15, 0, Math.PI * 2);
-        ctx.arc(size * 0.65, size * 0.4, 15, 0, Math.PI * 2);
+        ctx.arc(size * 0.35, size * 0.4, 20, 0, Math.PI * 2);
+        ctx.arc(size * 0.65, size * 0.4, 20, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(size * 0.35, size * 0.4, 8, 0, Math.PI * 2);
+        ctx.arc(size * 0.65, size * 0.4, 8, 0, Math.PI * 2);
         ctx.fill();
         
         return new THREE.CanvasTexture(ctx.canvas);
@@ -206,27 +212,36 @@ export const TextureGenerator = {
     
     createFastEnemyTexture(ctx, size) {
         const grad = ctx.createLinearGradient(0, 0, size, size);
-        grad.addColorStop(0, '#dd00ff');
-        grad.addColorStop(0.5, '#8800aa');
-        grad.addColorStop(1, '#440066');
+        grad.addColorStop(0, '#ff00ff');
+        grad.addColorStop(0.5, '#dd00dd');
+        grad.addColorStop(1, '#aa00aa');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, size, size);
         
-        ctx.strokeStyle = 'rgba(255, 100, 255, 0.6)';
-        ctx.lineWidth = 4;
-        for (let i = 0; i < 8; i++) {
-            const y = size * 0.1 + (size * 0.8 / 8) * i;
+        ctx.strokeStyle = '#ff88ff';
+        ctx.lineWidth = 6;
+        for (let i = 0; i < 6; i++) {
+            const y = size * 0.15 + (size * 0.7 / 6) * i;
             ctx.beginPath();
             ctx.moveTo(0, y);
-            ctx.lineTo(size * 0.7, y);
+            ctx.lineTo(size * 0.6, y);
             ctx.stroke();
             
             ctx.beginPath();
-            ctx.moveTo(size * 0.7, y);
-            ctx.lineTo(size, y - 10);
-            ctx.lineTo(size, y + 10);
+            ctx.moveTo(size * 0.6, y);
+            ctx.lineTo(size, y);
+            ctx.strokeStyle = '#ffccff';
+            ctx.stroke();
+            ctx.strokeStyle = '#ff88ff';
+        }
+        
+        ctx.fillStyle = '#ffffff';
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(size * 0.7 + i * 15, size * 0.4);
+            ctx.lineTo(size * 0.85 + i * 15, size * 0.5);
+            ctx.lineTo(size * 0.7 + i * 15, size * 0.6);
             ctx.closePath();
-            ctx.fillStyle = 'rgba(255, 100, 255, 0.6)';
             ctx.fill();
         }
         
@@ -235,40 +250,50 @@ export const TextureGenerator = {
     
     createTankEnemyTexture(ctx, size) {
         const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-        grad.addColorStop(0, '#44ff88');
-        grad.addColorStop(0.3, '#22aa55');
-        grad.addColorStop(0.7, '#116633');
-        grad.addColorStop(1, '#003311');
+        grad.addColorStop(0, '#88ffaa');
+        grad.addColorStop(0.3, '#44ff77');
+        grad.addColorStop(0.6, '#22dd55');
+        grad.addColorStop(1, '#00aa33');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, size, size);
         
-        ctx.strokeStyle = 'rgba(0, 50, 0, 0.8)';
-        ctx.lineWidth = 8;
-        for (let r = 30; r < size/2; r += 25) {
+        ctx.strokeStyle = '#00ff66';
+        ctx.lineWidth = 6;
+        for (let r = 25; r < size/2; r += 20) {
             ctx.beginPath();
             ctx.arc(size/2, size/2, r, 0, Math.PI * 2);
             ctx.stroke();
         }
         
-        ctx.fillStyle = 'rgba(100, 255, 150, 0.3)';
+        ctx.fillStyle = '#aaffcc';
         for (let i = 0; i < 6; i++) {
             const angle = (Math.PI / 3) * i;
-            const x = size/2 + Math.cos(angle) * size * 0.3;
-            const y = size/2 + Math.sin(angle) * size * 0.3;
+            const x = size/2 + Math.cos(angle) * size * 0.32;
+            const y = size/2 + Math.sin(angle) * size * 0.32;
             ctx.beginPath();
-            ctx.arc(x, y, 20, 0, Math.PI * 2);
+            ctx.arc(x, y, 18, 0, Math.PI * 2);
             ctx.fill();
         }
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, 25, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#00aa33';
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, 12, 0, Math.PI * 2);
+        ctx.fill();
         
         return new THREE.CanvasTexture(ctx.canvas);
     },
     
     createExploderTexture(ctx, size) {
-        ctx.fillStyle = '#ff6600';
+        ctx.fillStyle = '#ff8800';
         ctx.fillRect(0, 0, size, size);
         
-        ctx.fillStyle = '#000000';
-        const stripeWidth = size / 10;
+        ctx.fillStyle = '#ffcc00';
+        const stripeWidth = size / 8;
         for (let i = -size; i < size * 2; i += stripeWidth * 2) {
             ctx.beginPath();
             ctx.moveTo(i, 0);
@@ -279,52 +304,58 @@ export const TextureGenerator = {
             ctx.fill();
         }
         
-        ctx.strokeStyle = '#ffff00';
+        ctx.fillStyle = '#ffff00';
+        ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 4;
-        const warningSize = size * 0.4;
+        const warningSize = size * 0.5;
         ctx.beginPath();
         ctx.moveTo(size/2, size/2 - warningSize/2);
         ctx.lineTo(size/2 + warningSize/2, size/2 + warningSize/2);
         ctx.lineTo(size/2 - warningSize/2, size/2 + warningSize/2);
         ctx.closePath();
+        ctx.fill();
         ctx.stroke();
         
-        ctx.fillStyle = '#ffff00';
-        ctx.font = 'bold 40px Arial';
+        ctx.fillStyle = '#ff0000';
+        ctx.font = 'bold 50px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('!', size/2, size/2 + 10);
+        ctx.fillText('!', size/2, size/2 + 12);
         
         return new THREE.CanvasTexture(ctx.canvas);
     },
     
     createSplitterTexture(ctx, size) {
         const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-        grad.addColorStop(0, '#88ffff');
-        grad.addColorStop(0.4, '#00ccdd');
-        grad.addColorStop(0.8, '#006688');
-        grad.addColorStop(1, '#002233');
+        grad.addColorStop(0, '#00ffff');
+        grad.addColorStop(0.4, '#00ddff');
+        grad.addColorStop(0.7, '#00aadd');
+        grad.addColorStop(1, '#0088bb');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, size, size);
         
-        ctx.strokeStyle = 'rgba(150, 255, 255, 0.7)';
+        ctx.fillStyle = '#88ffff';
+        ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 3;
         for (let i = 0; i < 3; i++) {
-            const cx = size/2 + (i - 1) * 40;
+            const cx = size/2 + (i - 1) * 45;
             const cy = size/2;
             ctx.beginPath();
-            ctx.arc(cx, cy, 25, 0, Math.PI * 2);
-            ctx.stroke();
-            
-            ctx.beginPath();
-            ctx.moveTo(size/2, size/2);
-            ctx.lineTo(cx, cy);
+            ctx.arc(cx, cy, 28, 0, Math.PI * 2);
+            ctx.fill();
             ctx.stroke();
         }
         
-        ctx.fillStyle = 'rgba(200, 255, 255, 0.5)';
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.arc(size/2, size/2, 15, 0, Math.PI * 2);
+        ctx.moveTo(size/2 - 45, size/2);
+        ctx.lineTo(size/2 + 45, size/2);
+        ctx.stroke();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, 20, 0, Math.PI * 2);
         ctx.fill();
         
         return new THREE.CanvasTexture(ctx.canvas);
@@ -333,46 +364,133 @@ export const TextureGenerator = {
     createSplitterChildTexture(ctx, size) {
         const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
         grad.addColorStop(0, '#aaffff');
-        grad.addColorStop(0.5, '#44ddee');
-        grad.addColorStop(1, '#0088aa');
+        grad.addColorStop(0.4, '#66ffff');
+        grad.addColorStop(1, '#00ccdd');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, size, size);
         
-        ctx.strokeStyle = 'rgba(200, 255, 255, 0.8)';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.arc(size/2, size/2, size * 0.3, 0, Math.PI * 2);
+        ctx.arc(size/2, size/2, size * 0.35, 0, Math.PI * 2);
         ctx.stroke();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, 15, 0, Math.PI * 2);
+        ctx.fill();
         
         return new THREE.CanvasTexture(ctx.canvas);
     },
     
     createShooterTexture(ctx, size) {
         const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-        grad.addColorStop(0, '#ffff88');
-        grad.addColorStop(0.3, '#dddd00');
-        grad.addColorStop(0.7, '#888800');
-        grad.addColorStop(1, '#333300');
+        grad.addColorStop(0, '#ffff44');
+        grad.addColorStop(0.3, '#ffff00');
+        grad.addColorStop(0.6, '#dddd00');
+        grad.addColorStop(1, '#aaaa00');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, size, size);
         
-        ctx.strokeStyle = 'rgba(255, 255, 100, 0.6)';
-        ctx.lineWidth = 2;
-        const techSize = 15;
-        for (let x = techSize; x < size; x += techSize * 2) {
-            for (let y = techSize; y < size; y += techSize * 2) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        const techSize = 20;
+        for (let x = techSize; x < size; x += techSize * 1.5) {
+            for (let y = techSize; y < size; y += techSize * 1.5) {
                 ctx.strokeRect(x - techSize/2, y - techSize/2, techSize, techSize);
             }
         }
         
-        const eyeGrad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, 40);
-        eyeGrad.addColorStop(0, '#ff0000');
-        eyeGrad.addColorStop(0.3, '#ff0000');
-        eyeGrad.addColorStop(0.5, '#880000');
-        eyeGrad.addColorStop(1, 'rgba(136, 0, 0, 0)');
-        ctx.fillStyle = eyeGrad;
+        ctx.fillStyle = '#ff0000';
         ctx.beginPath();
-        ctx.arc(size/2, size/2, 40, 0, Math.PI * 2);
+        ctx.arc(size/2, size/2, 45, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#ff4444';
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, 35, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, 15, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, 6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        return new THREE.CanvasTexture(ctx.canvas);
+    },
+    
+    createGhostTexture(ctx, size) {
+        const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.5, '#ddddff');
+        grad.addColorStop(1, '#aabbff');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = 'rgba(100, 150, 255, 0.5)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 15; i++) {
+            ctx.beginPath();
+            const y = Math.random() * size;
+            ctx.moveTo(0, y);
+            for (let x = 0; x < size; x += 10) {
+                ctx.lineTo(x, y + Math.sin(x * 0.1) * 10);
+            }
+            ctx.stroke();
+        }
+        
+        ctx.fillStyle = '#4444aa';
+        ctx.beginPath();
+        ctx.ellipse(size * 0.35, size * 0.4, 25, 35, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(size * 0.65, size * 0.4, 25, 35, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(size * 0.35, size * 0.38, 10, 0, Math.PI * 2);
+        ctx.arc(size * 0.65, size * 0.38, 10, 0, Math.PI * 2);
+        ctx.fill();
+        
+        return new THREE.CanvasTexture(ctx.canvas);
+    },
+    
+    createTeleporterTexture(ctx, size) {
+        const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+        grad.addColorStop(0, '#ff88ff');
+        grad.addColorStop(0.4, '#ff00ff');
+        grad.addColorStop(0.7, '#cc00cc');
+        grad.addColorStop(1, '#880088');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+        
+        ctx.strokeStyle = '#ffaaff';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        for (let i = 0; i < 150; i++) {
+            const angle = i * 0.2;
+            const r = 15 + i * 0.6;
+            const x = size/2 + Math.cos(angle) * r;
+            const y = size/2 + Math.sin(angle) * r;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, 35, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#ff00ff';
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, 20, 0, Math.PI * 2);
         ctx.fill();
         
         ctx.fillStyle = '#ffffff';
@@ -383,100 +501,41 @@ export const TextureGenerator = {
         return new THREE.CanvasTexture(ctx.canvas);
     },
     
-    createGhostTexture(ctx, size) {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, size, size);
-        
-        const imageData = ctx.getImageData(0, 0, size, size);
-        for (let i = 0; i < imageData.data.length; i += 4) {
-            const noise = Math.random() * 150;
-            const base = 180 + Math.random() * 75;
-            imageData.data[i] = base - noise * 0.3;
-            imageData.data[i+1] = base - noise * 0.3;
-            imageData.data[i+2] = base;
-            imageData.data[i+3] = 200 + Math.random() * 55;
-        }
-        ctx.putImageData(imageData, 0, 0);
-        
-        ctx.strokeStyle = 'rgba(100, 100, 120, 0.3)';
-        ctx.lineWidth = 2;
-        for (let i = 0; i < 20; i++) {
-            ctx.beginPath();
-            ctx.moveTo(Math.random() * size, Math.random() * size);
-            ctx.lineTo(Math.random() * size, Math.random() * size);
-            ctx.stroke();
-        }
-        
-        ctx.fillStyle = 'rgba(50, 50, 80, 0.7)';
-        ctx.beginPath();
-        ctx.ellipse(size * 0.35, size * 0.4, 20, 30, 0, 0, Math.PI * 2);
-        ctx.ellipse(size * 0.65, size * 0.4, 20, 30, 0, 0, Math.PI * 2);
-        ctx.fill();
-        
-        return new THREE.CanvasTexture(ctx.canvas);
-    },
-    
-    createTeleporterTexture(ctx, size) {
-        ctx.fillStyle = '#220033';
-        ctx.fillRect(0, 0, size, size);
-        
-        for (let r = 0; r < 8; r++) {
-            const ringGrad = ctx.createRadialGradient(size/2, size/2, r * 15, size/2, size/2, r * 15 + 15);
-            ringGrad.addColorStop(0, 'rgba(255, 0, 255, 0)');
-            ringGrad.addColorStop(0.5, `rgba(255, 0, 255, ${0.3 - r * 0.03})`);
-            ringGrad.addColorStop(1, 'rgba(255, 0, 255, 0)');
-            ctx.fillStyle = ringGrad;
-            ctx.fillRect(0, 0, size, size);
-        }
-        
-        ctx.strokeStyle = 'rgba(255, 150, 255, 0.8)';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        for (let i = 0; i < 200; i++) {
-            const angle = i * 0.15;
-            const r = 10 + i * 0.5;
-            const x = size/2 + Math.cos(angle) * r;
-            const y = size/2 + Math.sin(angle) * r;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-        
-        const coreGrad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, 30);
-        coreGrad.addColorStop(0, '#ffffff');
-        coreGrad.addColorStop(0.5, '#ff00ff');
-        coreGrad.addColorStop(1, 'rgba(255, 0, 255, 0)');
-        ctx.fillStyle = coreGrad;
-        ctx.beginPath();
-        ctx.arc(size/2, size/2, 30, 0, Math.PI * 2);
-        ctx.fill();
-        
-        return new THREE.CanvasTexture(ctx.canvas);
-    },
-    
     createEliteBasicTexture(ctx, size) {
         const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-        grad.addColorStop(0, '#ffaa00');
-        grad.addColorStop(0.3, '#ff4400');
-        grad.addColorStop(0.7, '#aa0000');
-        grad.addColorStop(1, '#440000');
+        grad.addColorStop(0, '#ffdd00');
+        grad.addColorStop(0.3, '#ff8800');
+        grad.addColorStop(0.6, '#ff4400');
+        grad.addColorStop(1, '#cc2200');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, size, size);
         
-        ctx.strokeStyle = '#ffff00';
-        ctx.lineWidth = 4;
-        const crownY = size * 0.2;
+        ctx.fillStyle = '#ffff00';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        const crownY = size * 0.15;
         ctx.beginPath();
-        ctx.moveTo(size * 0.2, crownY + 40);
-        ctx.lineTo(size * 0.2, crownY);
-        ctx.lineTo(size * 0.35, crownY + 20);
+        ctx.moveTo(size * 0.15, crownY + 50);
+        ctx.lineTo(size * 0.15, crownY + 10);
+        ctx.lineTo(size * 0.3, crownY + 30);
         ctx.lineTo(size * 0.5, crownY - 10);
-        ctx.lineTo(size * 0.65, crownY + 20);
-        ctx.lineTo(size * 0.8, crownY);
-        ctx.lineTo(size * 0.8, crownY + 40);
+        ctx.lineTo(size * 0.7, crownY + 30);
+        ctx.lineTo(size * 0.85, crownY + 10);
+        ctx.lineTo(size * 0.85, crownY + 50);
+        ctx.closePath();
+        ctx.fill();
         ctx.stroke();
         
-        ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(size * 0.35, size * 0.55, 18, 0, Math.PI * 2);
+        ctx.arc(size * 0.65, size * 0.55, 18, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#ff0000';
+        ctx.beginPath();
+        ctx.arc(size * 0.35, size * 0.55, 8, 0, Math.PI * 2);
+        ctx.arc(size * 0.65, size * 0.55, 8, 0, Math.PI * 2);
         ctx.fill();
         
         return new THREE.CanvasTexture(ctx.canvas);
@@ -484,29 +543,35 @@ export const TextureGenerator = {
     
     createEliteFastTexture(ctx, size) {
         const grad = ctx.createLinearGradient(0, 0, size, size);
-        grad.addColorStop(0, '#ff00ff');
-        grad.addColorStop(0.5, '#ff8800');
-        grad.addColorStop(1, '#ffff00');
+        grad.addColorStop(0, '#ff44ff');
+        grad.addColorStop(0.5, '#ffaa00');
+        grad.addColorStop(1, '#ffff44');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, size, size);
         
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.lineWidth = 6;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 5;
         for (let i = 0; i < 5; i++) {
             const y = size * 0.2 + (size * 0.6 / 5) * i;
             ctx.beginPath();
             ctx.moveTo(0, y);
-            ctx.lineTo(size * 0.6, y);
             ctx.lineTo(size, y);
             ctx.stroke();
         }
         
         ctx.fillStyle = '#ffffff';
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(size * 0.5 + i * 25, size * 0.3);
+            ctx.lineTo(size * 0.75 + i * 25, size * 0.5);
+            ctx.lineTo(size * 0.5 + i * 25, size * 0.7);
+            ctx.closePath();
+            ctx.fill();
+        }
+        
+        ctx.fillStyle = '#ffff00';
         ctx.beginPath();
-        ctx.moveTo(size * 0.7, size * 0.3);
-        ctx.lineTo(size, size * 0.5);
-        ctx.lineTo(size * 0.7, size * 0.7);
-        ctx.closePath();
+        ctx.arc(size * 0.3, size * 0.5, 25, 0, Math.PI * 2);
         ctx.fill();
         
         return new THREE.CanvasTexture(ctx.canvas);
@@ -514,60 +579,50 @@ export const TextureGenerator = {
     
     createBossTexture(ctx, size) {
         const grad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-        grad.addColorStop(0, '#ff2200');
-        grad.addColorStop(0.3, '#aa0000');
-        grad.addColorStop(0.6, '#660000');
-        grad.addColorStop(1, '#220000');
+        grad.addColorStop(0, '#ff4444');
+        grad.addColorStop(0.3, '#ff0000');
+        grad.addColorStop(0.6, '#cc0000');
+        grad.addColorStop(1, '#880000');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, size, size);
         
-        ctx.strokeStyle = '#ff0000';
-        ctx.lineWidth = 4;
-        ctx.shadowColor = '#ff0000';
-        ctx.shadowBlur = 20;
-        
-        const runePatterns = [
-            [[0.3, 0.3], [0.7, 0.3], [0.7, 0.7], [0.3, 0.7], [0.3, 0.3]],
-            [[0.5, 0.2], [0.5, 0.8]],
-            [[0.2, 0.5], [0.8, 0.5]],
-            [[0.35, 0.35], [0.65, 0.65]],
-            [[0.65, 0.35], [0.35, 0.65]]
-        ];
-        
-        runePatterns.forEach(pattern => {
-            ctx.beginPath();
-            pattern.forEach((point, i) => {
-                const x = point[0] * size;
-                const y = point[1] * size;
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            });
-            ctx.stroke();
-        });
+        ctx.strokeStyle = '#ffff00';
+        ctx.lineWidth = 5;
         
         ctx.beginPath();
-        ctx.arc(size/2, size/2, size * 0.35, 0, Math.PI * 2);
+        ctx.arc(size/2, size/2, size * 0.4, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, size * 0.3, 0, Math.PI * 2);
         ctx.stroke();
         
         for (let i = 0; i < 8; i++) {
             const angle = (Math.PI / 4) * i;
-            const innerR = size * 0.35;
-            const outerR = size * 0.45;
             ctx.beginPath();
-            ctx.moveTo(size/2 + Math.cos(angle) * innerR, size/2 + Math.sin(angle) * innerR);
-            ctx.lineTo(size/2 + Math.cos(angle) * outerR, size/2 + Math.sin(angle) * outerR);
+            ctx.moveTo(size/2 + Math.cos(angle) * size * 0.3, size/2 + Math.sin(angle) * size * 0.3);
+            ctx.lineTo(size/2 + Math.cos(angle) * size * 0.45, size/2 + Math.sin(angle) * size * 0.45);
             ctx.stroke();
         }
         
-        const eyeGrad = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, 25);
-        eyeGrad.addColorStop(0, '#ffffff');
-        eyeGrad.addColorStop(0.3, '#ffff00');
-        eyeGrad.addColorStop(0.6, '#ff0000');
-        eyeGrad.addColorStop(1, 'rgba(255, 0, 0, 0)');
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = eyeGrad;
+        ctx.fillStyle = '#ff8800';
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, 40, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#ffff00';
         ctx.beginPath();
         ctx.arc(size/2, size/2, 25, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, 12, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#ff0000';
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, 5, 0, Math.PI * 2);
         ctx.fill();
         
         return new THREE.CanvasTexture(ctx.canvas);

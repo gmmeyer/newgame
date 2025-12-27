@@ -93,59 +93,59 @@ const difficultyTiers = [
 const enemyTypes = {
     basic: {
         geometry: () => new THREE.BoxGeometry(0.8, 0.8, 0.8),
-        color: 0xe74c3c, emissive: 0x922b21,
+        color: 0xff4444, emissive: 0xff2222,
         health: 30, speed: 3, damage: 10, scale: 1, weight: 40,
         gemCount: () => Math.ceil(Math.random() * 2),
-        deathParticles: { color: { r: 1, g: 0.2, b: 0.2 }, count: 30 }
+        deathParticles: { color: { r: 1, g: 0.3, b: 0.3 }, count: 30 }
     },
     fast: {
         geometry: () => new THREE.ConeGeometry(0.4, 1, 8),
-        color: 0x9b59b6, emissive: 0x6c3483,
+        color: 0xff00ff, emissive: 0xdd00dd,
         health: 15, speed: 7, damage: 5, scale: 0.8, weight: 25,
         gemCount: () => 1,
-        deathParticles: { color: { r: 0.6, g: 0.2, b: 0.8 }, count: 20 }
+        deathParticles: { color: { r: 1, g: 0.3, b: 1 }, count: 20 }
     },
     tank: {
         geometry: () => new THREE.SphereGeometry(0.7, 16, 16),
-        color: 0x27ae60, emissive: 0x1e8449,
+        color: 0x44ff88, emissive: 0x22dd66,
         health: 100, speed: 1.5, damage: 25, scale: 1.5, weight: 15,
         gemCount: () => Math.ceil(Math.random() * 3) + 2,
-        deathParticles: { color: { r: 0.2, g: 0.8, b: 0.4 }, count: 50 }
+        deathParticles: { color: { r: 0.3, g: 1, b: 0.5 }, count: 50 }
     },
     exploder: {
         geometry: () => new THREE.DodecahedronGeometry(0.5, 0),
-        color: 0xff6600, emissive: 0xcc4400,
+        color: 0xff8800, emissive: 0xffaa00,
         health: 25, speed: 4, damage: 8, scale: 1, weight: 20,
         explosionRadius: 4, explosionDamage: 30,
         gemCount: () => Math.ceil(Math.random() * 2),
-        deathParticles: { color: { r: 1, g: 0.4, b: 0 }, count: 60, size: 2.5 }
+        deathParticles: { color: { r: 1, g: 0.6, b: 0 }, count: 60, size: 2.5 }
     },
     splitter: {
         geometry: () => new THREE.IcosahedronGeometry(0.6, 0),
-        color: 0x00bcd4, emissive: 0x008ba3,
+        color: 0x00ffff, emissive: 0x00dddd,
         health: 40, speed: 2.5, damage: 12, scale: 1.2, weight: 15,
         splitCount: 3,
         gemCount: () => 1,
-        deathParticles: { color: { r: 0, g: 0.8, b: 1 }, count: 25 }
+        deathParticles: { color: { r: 0.3, g: 1, b: 1 }, count: 25 }
     },
     splitter_child: {
         geometry: () => new THREE.IcosahedronGeometry(0.3, 0),
-        color: 0x4dd0e1, emissive: 0x00acc1,
+        color: 0x66ffff, emissive: 0x44dddd,
         health: 15, speed: 5, damage: 5, scale: 0.6, weight: 0,
         gemCount: () => 1,
-        deathParticles: { color: { r: 0.3, g: 0.9, b: 1 }, count: 15 }
+        deathParticles: { color: { r: 0.5, g: 1, b: 1 }, count: 15 }
     },
     shooter: {
         geometry: () => new THREE.OctahedronGeometry(0.5, 0),
-        color: 0xffeb3b, emissive: 0xfbc02d,
+        color: 0xffff00, emissive: 0xdddd00,
         health: 35, speed: 2, damage: 5, scale: 1, weight: 15,
         shootRange: 15, shootCooldown: 2, projectileDamage: 15,
         gemCount: () => Math.ceil(Math.random() * 2) + 1,
-        deathParticles: { color: { r: 1, g: 0.9, b: 0.2 }, count: 35 }
+        deathParticles: { color: { r: 1, g: 1, b: 0.3 }, count: 35 }
     },
     ghost: {
         geometry: () => new THREE.TetrahedronGeometry(0.6, 0),
-        color: 0xffffff, emissive: 0xaaaaaa,
+        color: 0xffffff, emissive: 0xddddff,
         health: 20, speed: 4, damage: 15, scale: 1, weight: 10,
         transparent: true, phaseInterval: 1.5,
         gemCount: () => Math.ceil(Math.random() * 2),
@@ -153,35 +153,35 @@ const enemyTypes = {
     },
     teleporter: {
         geometry: () => new THREE.TorusGeometry(0.4, 0.15, 8, 16),
-        color: 0xff00ff, emissive: 0xaa00aa,
+        color: 0xff44ff, emissive: 0xff00ff,
         health: 30, speed: 3, damage: 20, scale: 1, weight: 10,
         teleportCooldown: 3, teleportRange: 8,
         gemCount: () => Math.ceil(Math.random() * 3),
-        deathParticles: { color: { r: 1, g: 0, b: 1 }, count: 40 }
+        deathParticles: { color: { r: 1, g: 0.3, b: 1 }, count: 40 }
     },
     elite_basic: {
         geometry: () => new THREE.BoxGeometry(1, 1, 1),
-        color: 0xff0000, emissive: 0xaa0000,
+        color: 0xffaa00, emissive: 0xff8800,
         health: 150, speed: 4, damage: 20, scale: 1.3, weight: 20,
         isElite: true,
         gemCount: () => Math.ceil(Math.random() * 3) + 2,
-        deathParticles: { color: { r: 1, g: 0.8, b: 0 }, count: 60 }
+        deathParticles: { color: { r: 1, g: 0.8, b: 0.2 }, count: 60 }
     },
     elite_fast: {
         geometry: () => new THREE.ConeGeometry(0.5, 1.2, 8),
-        color: 0xff00ff, emissive: 0xaa00aa,
+        color: 0xff88ff, emissive: 0xff44ff,
         health: 50, speed: 10, damage: 12, scale: 1, weight: 15,
         isElite: true,
         gemCount: () => Math.ceil(Math.random() * 2) + 1,
-        deathParticles: { color: { r: 1, g: 0, b: 1 }, count: 40 }
+        deathParticles: { color: { r: 1, g: 0.5, b: 1 }, count: 40 }
     },
     boss: {
         geometry: () => new THREE.BoxGeometry(1.5, 1.5, 1.5),
-        color: 0x8b0000, emissive: 0x660000,
+        color: 0xff2200, emissive: 0xff4400,
         health: 500, speed: 2, damage: 40, scale: 2.5, weight: 0,
         isBoss: true,
         gemCount: () => 10 + Math.floor(Math.random() * 10),
-        deathParticles: { color: { r: 1, g: 0, b: 0 }, count: 150, size: 3 }
+        deathParticles: { color: { r: 1, g: 0.3, b: 0.1 }, count: 150, size: 3 }
     }
 };
 
@@ -557,12 +557,12 @@ function createEnemy(x, z, forcedType = null) {
         map: enemyTexture,
         color: type.color,
         emissive: type.emissive,
-        emissiveIntensity: type.isElite ? 0.8 : (type.isBoss ? 1 : 0.4),
+        emissiveIntensity: type.isElite ? 1.2 : (type.isBoss ? 1.5 : 0.8),
         emissiveMap: enemyTexture,
         transparent: type.transparent || false,
-        opacity: type.transparent ? 0.6 : 1,
-        roughness: 0.4,
-        metalness: 0.6
+        opacity: type.transparent ? 0.7 : 1,
+        roughness: 0.3,
+        metalness: 0.5
     });
 
     const mesh = new THREE.Mesh(geometry, material);
