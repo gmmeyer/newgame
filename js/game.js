@@ -255,8 +255,8 @@ function getAvailableUpgrades() {
 
 export function init() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a2e);
-    scene.fog = new THREE.FogExp2(0x1a1a2e, 0.015);
+    scene.background = new THREE.Color(0x0a0a1a);
+    scene.fog = new THREE.FogExp2(0x0a0a1a, 0.008);
 
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 25, 20);
@@ -278,7 +278,7 @@ export function init() {
     
     const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        1.2, 0.5, 0.6
+        0.8, 0.4, 0.85
     );
     composer.addPass(bloomPass);
     
@@ -311,18 +311,18 @@ export function init() {
     };
     
     const vignettePass = new ShaderPass(vignetteShader);
-    vignettePass.uniforms.darkness.value = 0.3;
-    vignettePass.uniforms.offset.value = 1.0;
+    vignettePass.uniforms.darkness.value = 0.15;
+    vignettePass.uniforms.offset.value = 1.2;
     composer.addPass(vignettePass);
     
     const chromaticPass = new ShaderPass(ChromaticAberrationShader);
     composer.addPass(chromaticPass);
     chromaticAberration = new ChromaticAberrationController(chromaticPass);
 
-    const ambientLight = new THREE.AmbientLight(0x4466aa, 1.2);
+    const ambientLight = new THREE.AmbientLight(0x6688cc, 2.5);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xaaaaff, 1.0);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.8);
     directionalLight.position.set(20, 40, 20);
     directionalLight.castShadow = true;
     directionalLight.shadow.mapSize.width = 2048;
@@ -338,10 +338,10 @@ export function init() {
     const groundGeometry = new THREE.PlaneGeometry(100, 100);
     const groundMaterial = new THREE.MeshStandardMaterial({
         map: getTexture('ground'),
-        roughness: 0.9,
-        metalness: 0.1,
-        emissive: 0x003333,
-        emissiveIntensity: 0.4
+        roughness: 0.7,
+        metalness: 0.2,
+        emissive: 0x004455,
+        emissiveIntensity: 0.8
     });
     ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;

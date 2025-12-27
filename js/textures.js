@@ -8,10 +8,10 @@ export const TextureGenerator = {
         canvas.width = canvas.height = size;
         const ctx = canvas.getContext('2d');
         
-        ctx.fillStyle = '#080812';
+        ctx.fillStyle = '#101828';
         ctx.fillRect(0, 0, size, size);
         
-        ctx.strokeStyle = 'rgba(0, 255, 255, 0.08)';
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.15)';
         ctx.lineWidth = 1;
         const hexSize = 40;
         for (let row = 0; row < size / hexSize + 1; row++) {
@@ -22,7 +22,7 @@ export const TextureGenerator = {
             }
         }
         
-        ctx.strokeStyle = 'rgba(0, 255, 255, 0.03)';
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.08)';
         ctx.lineWidth = 1;
         for (let i = 0; i < 50; i++) {
             const startX = Math.random() * size;
@@ -46,21 +46,21 @@ export const TextureGenerator = {
         for (let i = 0; i <= size; i += mainGridSize) {
             const gradH = ctx.createLinearGradient(0, i - 2, 0, i + 2);
             gradH.addColorStop(0, 'rgba(0, 255, 255, 0)');
-            gradH.addColorStop(0.5, 'rgba(0, 255, 255, 0.6)');
+            gradH.addColorStop(0.5, 'rgba(0, 255, 255, 0.9)');
             gradH.addColorStop(1, 'rgba(0, 255, 255, 0)');
             ctx.fillStyle = gradH;
             ctx.fillRect(0, i - 2, size, 4);
             
             const gradV = ctx.createLinearGradient(i - 2, 0, i + 2, 0);
             gradV.addColorStop(0, 'rgba(0, 255, 255, 0)');
-            gradV.addColorStop(0.5, 'rgba(0, 255, 255, 0.6)');
+            gradV.addColorStop(0.5, 'rgba(0, 255, 255, 0.9)');
             gradV.addColorStop(1, 'rgba(0, 255, 255, 0)');
             ctx.fillStyle = gradV;
             ctx.fillRect(i - 2, 0, 4, size);
         }
         
         const subGridSize = 32;
-        ctx.strokeStyle = 'rgba(0, 255, 255, 0.15)';
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.25)';
         ctx.lineWidth = 1;
         for (let i = 0; i <= size; i += subGridSize) {
             ctx.beginPath();
@@ -73,9 +73,9 @@ export const TextureGenerator = {
         
         for (let x = 0; x <= size; x += mainGridSize) {
             for (let y = 0; y <= size; y += mainGridSize) {
-                const nodeGrad = ctx.createRadialGradient(x, y, 0, x, y, 12);
-                nodeGrad.addColorStop(0, 'rgba(0, 255, 255, 0.8)');
-                nodeGrad.addColorStop(0.5, 'rgba(0, 255, 255, 0.3)');
+                const nodeGrad = ctx.createRadialGradient(x, y, 0, x, y, 16);
+                nodeGrad.addColorStop(0, 'rgba(0, 255, 255, 1)');
+                nodeGrad.addColorStop(0.5, 'rgba(0, 255, 255, 0.5)');
                 nodeGrad.addColorStop(1, 'rgba(0, 255, 255, 0)');
                 ctx.fillStyle = nodeGrad;
                 ctx.fillRect(x - 12, y - 12, 24, 24);
@@ -85,9 +85,9 @@ export const TextureGenerator = {
         for (let i = 0; i < 30; i++) {
             const x = Math.random() * size;
             const y = Math.random() * size;
-            const pulseGrad = ctx.createRadialGradient(x, y, 0, x, y, 20);
-            pulseGrad.addColorStop(0, 'rgba(255, 0, 255, 0.3)');
-            pulseGrad.addColorStop(0.5, 'rgba(255, 0, 255, 0.1)');
+            const pulseGrad = ctx.createRadialGradient(x, y, 0, x, y, 25);
+            pulseGrad.addColorStop(0, 'rgba(255, 0, 255, 0.5)');
+            pulseGrad.addColorStop(0.5, 'rgba(255, 0, 255, 0.2)');
             pulseGrad.addColorStop(1, 'rgba(255, 0, 255, 0)');
             ctx.fillStyle = pulseGrad;
             ctx.fillRect(x - 20, y - 20, 40, 40);
