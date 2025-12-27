@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getTexture } from './textures.js';
 
 export class OrbitingShields {
     constructor(scene, particleSystem) {
@@ -27,15 +28,20 @@ export class OrbitingShields {
         this.shields.forEach(s => this.scene.remove(s));
         this.shields = [];
         
+        const shieldTexture = getTexture('shield');
         const count = this.count;
         for (let i = 0; i < count; i++) {
             const geometry = new THREE.SphereGeometry(0.4, 16, 16);
             const material = new THREE.MeshStandardMaterial({
+                map: shieldTexture,
                 color: 0x00ffff,
                 emissive: 0x00ffff,
                 emissiveIntensity: 0.8,
+                emissiveMap: shieldTexture,
                 transparent: true,
-                opacity: 0.9
+                opacity: 0.9,
+                roughness: 0.2,
+                metalness: 0.8
             });
             const shield = new THREE.Mesh(geometry, material);
             shield.userData = {

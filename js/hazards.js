@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getTexture } from './textures.js';
 
 export class HazardSystem {
     constructor(scene, particleSystem, audio) {
@@ -101,10 +102,12 @@ class LaserGrid {
     
     createWarningIndicator() {
         const geometry = new THREE.PlaneGeometry(this.size, this.size);
+        const laserTexture = getTexture('hazard_laser');
         const material = new THREE.MeshBasicMaterial({
+            map: laserTexture,
             color: 0xff0000,
             transparent: true,
-            opacity: 0.2,
+            opacity: 0.3,
             side: THREE.DoubleSide
         });
         this.warningPlane = new THREE.Mesh(geometry, material);
@@ -247,10 +250,12 @@ class DangerZone {
     
     createWarningCircle() {
         const geometry = new THREE.CircleGeometry(this.radius, 32);
+        const dangerTexture = getTexture('hazard_danger');
         const material = new THREE.MeshBasicMaterial({
+            map: dangerTexture,
             color: 0xff6600,
             transparent: true,
-            opacity: 0.2,
+            opacity: 0.3,
             side: THREE.DoubleSide
         });
         this.circle = new THREE.Mesh(geometry, material);
@@ -354,10 +359,12 @@ class PulsingOrb {
         this.group.position.copy(this.position);
         
         const coreGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+        const orbTexture = getTexture('hazard_orb');
         const coreMaterial = new THREE.MeshBasicMaterial({
+            map: orbTexture,
             color: 0x00ffff,
             transparent: true,
-            opacity: 0.8
+            opacity: 0.9
         });
         this.core = new THREE.Mesh(coreGeometry, coreMaterial);
         this.group.add(this.core);

@@ -249,6 +249,14 @@ body {
     background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(255, 0, 255, 0.2));
 }
 
+.upgrade-card .upgrade-icon {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 12px;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.5));
+}
+
 .upgrade-card h3 {
     font-size: 22px;
     color: #0ff;
@@ -812,6 +820,98 @@ body {
     color: #ff6600;
     margin-top: 8px;
 }
+
+.character-card .char-stats {
+    font-size: 11px;
+    color: #888;
+    margin-top: 8px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   Global Stats Display (Start Screen)
+   -------------------------------------------------------------------------- */
+#global-stats {
+    margin-top: 30px;
+}
+
+.global-stats-box {
+    padding: 15px 25px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 8px;
+}
+
+.global-stats-box .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 14px;
+    color: #888;
+}
+
+.global-stats-box .stat-row span:last-child {
+    color: #0ff;
+    text-shadow: 0 0 5px #0ff;
+}
+
+/* --------------------------------------------------------------------------
+   Run Stats Summary (Game Over Screen)
+   -------------------------------------------------------------------------- */
+#run-stats-summary {
+    margin: 20px 0;
+}
+
+#run-stats-summary .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    max-width: 500px;
+}
+
+/* --------------------------------------------------------------------------
+   Unlock Notification
+   -------------------------------------------------------------------------- */
+#unlock-notification {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 25px 35px;
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.15), rgba(255, 0, 255, 0.15));
+    border: 3px solid #0ff;
+    border-radius: 12px;
+    z-index: 300;
+    animation: unlockPop 0.5s ease-out, unlockFade 5s ease-in-out;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 0 40px rgba(0, 255, 255, 0.5);
+}
+
+#unlock-notification .title {
+    color: #0ff;
+    font-size: 20px;
+    font-weight: bold;
+    text-shadow: 0 0 15px #0ff;
+    letter-spacing: 2px;
+}
+
+#unlock-notification .desc {
+    color: #aaa;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+@keyframes unlockPop {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+@keyframes unlockFade {
+    0%, 80% { opacity: 1; }
+    100% { opacity: 0; }
 
 /* --------------------------------------------------------------------------
    Responsive Adjustments

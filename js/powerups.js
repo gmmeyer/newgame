@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getTexture } from './textures.js';
 
 export class PowerupSystem {
     constructor(scene, particleSystem, audio) {
@@ -19,16 +20,21 @@ export class PowerupSystem {
         const selectedType = type || types[Math.floor(Math.random() * types.length)];
         
         const config = this.getPowerupConfig(selectedType);
+        const powerupTexture = getTexture('powerup_' + selectedType);
         
         const group = new THREE.Group();
         
         const geometry = new THREE.OctahedronGeometry(0.5, 0);
         const material = new THREE.MeshStandardMaterial({
+            map: powerupTexture,
             color: config.color,
             emissive: config.color,
             emissiveIntensity: 0.8,
+            emissiveMap: powerupTexture,
             transparent: true,
-            opacity: 0.9
+            opacity: 0.9,
+            roughness: 0.2,
+            metalness: 0.8
         });
         const mesh = new THREE.Mesh(geometry, material);
         group.add(mesh);

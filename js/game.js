@@ -5,7 +5,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
 import { audio } from './audio.js';
-import { getTexture } from './textures.js';
+import { getTexture, getUpgradeIcon } from './textures.js';
 import { ParticleSystem } from './particles.js';
 import { ScreenShake, TimeController, DamageNumberSystem, ShockwaveSystem, ChromaticAberrationShader, ChromaticAberrationController } from './effects.js';
 import { WeaponSystem } from './weapons.js';
@@ -30,6 +30,7 @@ let enemies = [];
 let projectiles = [];
 let gems = [];
 let clock;
+let selectedCharacterId = 'default';
 
 let particleSystem;
 let screenShake;
@@ -375,7 +376,86 @@ export function init() {
     document.getElementById('start-btn').addEventListener('click', startGame);
     document.getElementById('restart-btn').addEventListener('click', restartGame);
 
+    initCharacterSelect();
+    updateGlobalStatsDisplay();
+
     renderer.render(scene, camera);
+}
+
+function initCharacterSelect() {
+    const container = document.getElementById('character-select');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    const allCharacters = metaSystem.unlocks.characters;
+    const unlockedIds = metaSystem.unlocks.unlocked;
+    
+    allCharacters.forEach(char => {
+        const isUnlocked = unlockedIds.includes(char.id);
+        const isSelected = char.id === selectedCharacterId;
+        
+        const card = document.createElement('div');
+        card.className = `character-card ${isSelected ? 'selected' : ''} ${!isUnlocked ? 'locked' : ''}`;
+        card.dataset.id = char.id;
+        
+        const colorHex = '#' + char.color.toString(16).padStart(6, '0');
+        
+        card.innerHTML = `
+            <div class="avatar" style="background: ${colorHex}; border-color: ${colorHex};"></div>
+            <div class="name">${char.name}</div>
+            <div class="desc">${char.desc}</div>
+            <div class="char-stats">
+                <span title="Health">❤️${char.stats.health}</span>
+                <span title="Speed">⚡${char.stats.speed}</span>
+                <span title="Damage">⚔️${char.stats.damage}</span>
+            </div>
+            ${!isUnlocked && char.unlockReq ? `<div class="unlock-req">🔒 ${char.unlockReq}</div>` : ''}
+        `;
+        
+        if (isUnlocked) {
+            card.addEventListener('click', () => selectCharacter(char.id));
+        }
+        
+        container.appendChild(card);
+    });
+}
+
+function selectCharacter(charId) {
+    selectedCharacterId = charId;
+    
+    document.querySelectorAll('.character-card').forEach(card => {
+        card.classList.toggle('selected', card.dataset.id === charId);
+    });
+}
+
+function updateGlobalStatsDisplay() {
+    const container = document.getElementById('global-stats');
+    if (!container) return;
+    
+    const stats = metaSystem.statistics.getGlobalStats();
+    const achievements = metaSystem.achievements.getProgress();
+    
+    if (stats.totalRuns === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    const formatTime = (seconds) => {
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    };
+    
+    container.innerHTML = `
+        <div class="global-stats-box">
+            <div class="stat-row"><span>Total Runs:</span><span>${stats.totalRuns}</span></div>
+            <div class="stat-row"><span>Best Time:</span><span>${formatTime(stats.bestTime)}</span></div>
+            <div class="stat-row"><span>Best Level:</span><span>${stats.bestLevel}</span></div>
+            <div class="stat-row"><span>Total Kills:</span><span>${stats.totalKills.toLocaleString()}</span></div>
+            <div class="stat-row"><span>Achievements:</span><span>${achievements.unlocked}/${achievements.total}</span></div>
+        </div>
+    `;
 }
 
 function createPlayer() {
@@ -472,14 +552,17 @@ function createEnemy(x, z, forcedType = null) {
     const type = enemyTypes[typeName];
 
     const geometry = type.geometry();
+    const enemyTexture = getTexture('enemy_' + typeName);
     const material = new THREE.MeshStandardMaterial({
+        map: enemyTexture,
         color: type.color,
         emissive: type.emissive,
         emissiveIntensity: type.isElite ? 0.8 : (type.isBoss ? 1 : 0.4),
+        emissiveMap: enemyTexture,
         transparent: type.transparent || false,
         opacity: type.transparent ? 0.6 : 1,
-        roughness: 0.5,
-        metalness: 0.5
+        roughness: 0.4,
+        metalness: 0.6
     });
 
     const mesh = new THREE.Mesh(geometry, material);
@@ -1208,7 +1291,14 @@ function showLevelUpScreen() {
             levelBadge = `<span class="level-badge">Lv ${upgrade.currentLevel} → ${upgrade.currentLevel + 1}</span>`;
         }
         
-        card.innerHTML = `<h3>${upgrade.name}</h3><p>${upgrade.desc}</p>${levelBadge}`;
+        const iconSrc = getUpgradeIcon(upgrade.id);
+        
+        card.innerHTML = `
+            <img src="${iconSrc}" class="upgrade-icon" alt="${upgrade.name}">
+            <h3>${upgrade.name}</h3>
+            <p>${upgrade.desc}</p>
+            ${levelBadge}
+        `;
         card.addEventListener('click', () => {
             upgrade.apply();
             hideLevelUpScreen();
@@ -1262,6 +1352,21 @@ function gameOver() {
     document.getElementById('final-level').textContent = playerStats.level;
     document.getElementById('final-kills').textContent = playerStats.killCount;
     
+    const statsContainer = document.getElementById('run-stats-summary');
+    if (statsContainer) {
+        const stats = endResult.runStats;
+        statsContainer.innerHTML = `
+            <div class="stats-grid">
+                <div class="stat-item"><div class="value">${stats.damageDealt.toLocaleString()}</div><div class="label">Damage Dealt</div></div>
+                <div class="stat-item"><div class="value">${stats.damageTaken.toLocaleString()}</div><div class="label">Damage Taken</div></div>
+                <div class="stat-item"><div class="value">${stats.damageHealed.toLocaleString()}</div><div class="label">Healing</div></div>
+                <div class="stat-item"><div class="value">${stats.gemsCollected}</div><div class="label">Gems</div></div>
+                <div class="stat-item"><div class="value">${stats.bossKills}</div><div class="label">Bosses</div></div>
+                <div class="stat-item"><div class="value">${stats.maxCombo}x</div><div class="label">Best Combo</div></div>
+            </div>
+        `;
+    }
+    
     if (endResult.scoreResult.isHighScore) {
         const rankText = endResult.scoreResult.rank === 1 ? 'NEW HIGH SCORE!' : `Rank #${endResult.scoreResult.rank}`;
         const highScoreDiv = document.createElement('div');
@@ -1275,8 +1380,30 @@ function gameOver() {
             setTimeout(() => showAchievementNotification(ach), i * 1500);
         });
     }
+    
+    if (endResult.newUnlocks.length > 0) {
+        endResult.newUnlocks.forEach((char, i) => {
+            setTimeout(() => showUnlockNotification(char), 500 + i * 2000);
+        });
+    }
 
     document.getElementById('game-over-screen').style.display = 'flex';
+}
+
+function showUnlockNotification(character) {
+    const notif = document.createElement('div');
+    notif.id = 'unlock-notification';
+    const colorHex = '#' + character.color.toString(16).padStart(6, '0');
+    notif.innerHTML = `
+        <div class="unlock-icon" style="background: ${colorHex}; width: 50px; height: 50px; border-radius: 50%; margin-right: 15px;"></div>
+        <span class="text">
+            <div class="title">NEW CHARACTER UNLOCKED!</div>
+            <div class="desc">${character.name} - ${character.desc}</div>
+        </span>
+    `;
+    document.body.appendChild(notif);
+    
+    setTimeout(() => notif.remove(), 5000);
 }
 
 function showAchievementNotification(achievement) {
@@ -1299,6 +1426,29 @@ function showAchievementNotification(achievement) {
 
 function startGame() {
     audio.init();
+    
+    const character = metaSystem.unlocks.getCharacter(selectedCharacterId);
+    if (character) {
+        playerStats.health = character.stats.health;
+        playerStats.maxHealth = character.stats.health;
+        playerStats.speed = character.stats.speed;
+        playerStats.damage = character.stats.damage;
+        playerStats.attackSpeed = character.stats.attackSpeed;
+        
+        if (character.startingPassives) {
+            character.startingPassives.forEach(passiveId => {
+                if (passiveSystem[passiveId]) {
+                    passiveSystem[passiveId].upgrade();
+                }
+            });
+        }
+        
+        if (player.children[0] && player.children[0].material) {
+            player.children[0].material.color.setHex(character.color);
+            player.children[0].material.emissive.setHex(character.color);
+        }
+    }
+    
     document.getElementById('start-screen').style.display = 'none';
     document.getElementById('hud').style.display = 'block';
     minimap.show();
@@ -1311,11 +1461,22 @@ function startGame() {
 }
 
 function restartGame() {
+    const character = metaSystem.unlocks.getCharacter(selectedCharacterId);
+    const baseHealth = character ? character.stats.health : 100;
+    const baseSpeed = character ? character.stats.speed : 8;
+    const baseDamage = character ? character.stats.damage : 25;
+    const baseAttackSpeed = character ? character.stats.attackSpeed : 1;
+    
     playerStats = {
-        health: 100, maxHealth: 100, speed: 8, exp: 0, expToLevel: 10,
-        level: 1, damage: 25, attackSpeed: 1, attackRange: 15,
+        health: baseHealth, maxHealth: baseHealth, speed: baseSpeed, exp: 0, expToLevel: 10,
+        level: 1, damage: baseDamage, attackSpeed: baseAttackSpeed, attackRange: 15,
         projectileSpeed: 20, projectileCount: 1, killCount: 0
     };
+    
+    if (character && player.children[0] && player.children[0].material) {
+        player.children[0].material.color.setHex(character.color);
+        player.children[0].material.emissive.setHex(character.color);
+    }
 
     enemies.forEach(e => scene.remove(e));
     projectiles.forEach(p => scene.remove(p));
@@ -1347,12 +1508,22 @@ function restartGame() {
     healthBars.reset();
     powerupSystem.reset();
     hazardSystem.reset();
+    
+    if (character && character.startingPassives) {
+        character.startingPassives.forEach(passiveId => {
+            if (passiveSystem[passiveId]) {
+                passiveSystem[passiveId].upgrade();
+            }
+        });
+    }
+    
     metaSystem.startRun();
     
-    const highScoreDiv = document.querySelector('#final-stats > div:last-child');
-    if (highScoreDiv && highScoreDiv.style.color === 'rgb(255, 215, 0)') {
-        highScoreDiv.remove();
-    }
+    const highScoreDivs = document.querySelectorAll('#final-stats > div[style*="ffd700"]');
+    highScoreDivs.forEach(div => div.remove());
+    
+    const statsContainer = document.getElementById('run-stats-summary');
+    if (statsContainer) statsContainer.innerHTML = '';
 
     document.getElementById('game-over-screen').style.display = 'none';
     document.getElementById('hud').style.display = 'block';
