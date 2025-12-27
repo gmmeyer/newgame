@@ -7,7 +7,13 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { audio } from './audio.js';
 import { getTexture } from './textures.js';
 import { ParticleSystem } from './particles.js';
-import { ScreenShake, TimeController, DamageNumberSystem, ShockwaveSystem } from './effects.js';
+import { ScreenShake, TimeController, DamageNumberSystem, ShockwaveSystem, ChromaticAberrationShader, ChromaticAberrationController } from './effects.js';
+import { WeaponSystem } from './weapons.js';
+import { HazardSystem } from './hazards.js';
+import { PassiveSystem, passiveUpgrades } from './passives.js';
+import { EnemyHealthBars, Minimap } from './ui.js';
+import { MetaSystem } from './meta.js';
+import { PowerupSystem } from './powerups.js';
 
 const GameState = {
     MENU: 'menu',
@@ -30,6 +36,14 @@ let screenShake;
 let timeController;
 let damageNumbers;
 let shockwaves;
+let weaponSystem;
+let passiveSystem;
+let healthBars;
+let minimap;
+let metaSystem;
+let powerupSystem;
+let hazardSystem;
+let chromaticAberration;
 
 let cameraTargetPosition = new THREE.Vector3();
 let cameraBasePosition = new THREE.Vector3();
@@ -170,16 +184,73 @@ const enemyTypes = {
     }
 };
 
-const upgrades = [
-    { name: 'Max Health', desc: '+20 Max HP', apply: () => { playerStats.maxHealth += 20; playerStats.health = Math.min(playerStats.health + 20, playerStats.maxHealth); }},
-    { name: 'Speed', desc: '+15% Movement', apply: () => { playerStats.speed *= 1.15; }},
-    { name: 'Damage', desc: '+10 Attack Damage', apply: () => { playerStats.damage += 10; }},
-    { name: 'Attack Speed', desc: '+20% Fire Rate', apply: () => { playerStats.attackSpeed *= 1.2; }},
-    { name: 'Range', desc: '+3 Attack Range', apply: () => { playerStats.attackRange += 3; }},
-    { name: 'Multi-Shot', desc: '+1 Projectile', apply: () => { playerStats.projectileCount += 1; }},
-    { name: 'Heal', desc: 'Restore 50 HP', apply: () => { playerStats.health = Math.min(playerStats.health + 50, playerStats.maxHealth); }},
-    { name: 'Projectile Speed', desc: '+25% Bullet Speed', apply: () => { playerStats.projectileSpeed *= 1.25; }}
+const baseUpgrades = [
+    { id: 'maxHealth', name: 'Max Health', desc: '+20 Max HP', category: 'stat', apply: () => { playerStats.maxHealth += 20; playerStats.health = Math.min(playerStats.health + 20, playerStats.maxHealth); }},
+    { id: 'speed', name: 'Speed', desc: '+15% Movement', category: 'stat', apply: () => { playerStats.speed *= 1.15; }},
+    { id: 'damage', name: 'Damage', desc: '+10 Attack Damage', category: 'stat', apply: () => { playerStats.damage += 10; }},
+    { id: 'attackSpeed', name: 'Attack Speed', desc: '+20% Fire Rate', category: 'stat', apply: () => { playerStats.attackSpeed *= 1.2; }},
+    { id: 'range', name: 'Range', desc: '+3 Attack Range', category: 'stat', apply: () => { playerStats.attackRange += 3; }},
+    { id: 'multiShot', name: 'Multi-Shot', desc: '+1 Projectile', category: 'stat', apply: () => { playerStats.projectileCount += 1; }},
+    { id: 'heal', name: 'Heal', desc: 'Restore 50 HP', category: 'stat', apply: () => { playerStats.health = Math.min(playerStats.health + 50, playerStats.maxHealth); }},
+    { id: 'projectileSpeed', name: 'Projectile Speed', desc: '+25% Bullet Speed', category: 'stat', apply: () => { playerStats.projectileSpeed *= 1.25; }}
 ];
+
+const weaponUpgrades = [
+    { 
+        id: 'orbitingShields', name: 'Orbiting Shields', 
+        desc: () => weaponSystem.orbitingShields.level === 0 ? 'Summon 2 shields that orbit and damage enemies' : `+1 shield, +8 damage`,
+        category: 'weapon', maxLevel: 5, unlockLevel: 2,
+        apply: () => { weaponSystem.orbitingShields.upgrade(); metaSystem.statistics.recordUpgrade('orbitingShields', true, false); }
+    },
+    { 
+        id: 'areaNova', name: 'Nova Blast', 
+        desc: () => weaponSystem.areaNova.level === 0 ? 'Periodically explode, damaging nearby enemies' : `+20 damage, +1.5 radius, faster cooldown`,
+        category: 'weapon', maxLevel: 5, unlockLevel: 3,
+        apply: () => { weaponSystem.areaNova.upgrade(); metaSystem.statistics.recordUpgrade('areaNova', true, false); }
+    },
+    { 
+        id: 'chainLightning', name: 'Chain Lightning', 
+        desc: () => weaponSystem.chainLightning.level === 0 ? 'Lightning that chains between 3 enemies' : `+1 chain, +10 damage, faster cooldown`,
+        category: 'weapon', maxLevel: 5, unlockLevel: 4,
+        apply: () => { weaponSystem.chainLightning.upgrade(); metaSystem.statistics.recordUpgrade('chainLightning', true, false); }
+    }
+];
+
+function getAvailableUpgrades() {
+    const available = [];
+    
+    baseUpgrades.forEach(u => available.push({ ...u, currentLevel: 0 }));
+    
+    weaponUpgrades.forEach(u => {
+        if (playerStats.level >= (u.unlockLevel || 1)) {
+            const weapon = weaponSystem[u.id.replace('Shields', 'ingShields')];
+            const level = weapon ? weapon.level : 0;
+            if (level < u.maxLevel) {
+                available.push({ ...u, currentLevel: level, desc: typeof u.desc === 'function' ? u.desc() : u.desc });
+            }
+        }
+    });
+    
+    passiveUpgrades.forEach(u => {
+        if (playerStats.level >= (u.unlockLevel || 1)) {
+            const passive = passiveSystem[u.id];
+            const level = passive ? passive.level : 0;
+            if (level < u.maxLevel) {
+                available.push({ 
+                    ...u, 
+                    currentLevel: level, 
+                    desc: typeof u.desc === 'function' ? u.desc(level) : u.desc,
+                    apply: () => { 
+                        passiveSystem[u.id].upgrade(); 
+                        metaSystem.statistics.recordUpgrade(u.id, false, true); 
+                    }
+                });
+            }
+        }
+    });
+    
+    return available;
+}
 
 export function init() {
     scene = new THREE.Scene();
@@ -242,6 +313,10 @@ export function init() {
     vignettePass.uniforms.darkness.value = 0.3;
     vignettePass.uniforms.offset.value = 1.0;
     composer.addPass(vignettePass);
+    
+    const chromaticPass = new ShaderPass(ChromaticAberrationShader);
+    composer.addPass(chromaticPass);
+    chromaticAberration = new ChromaticAberrationController(chromaticPass);
 
     const ambientLight = new THREE.AmbientLight(0x4466aa, 1.2);
     scene.add(ambientLight);
@@ -281,6 +356,15 @@ export function init() {
     timeController = new TimeController();
     damageNumbers = new DamageNumberSystem(scene);
     shockwaves = new ShockwaveSystem(scene);
+    
+    weaponSystem = new WeaponSystem(scene, particleSystem, shockwaves, screenShake, audio);
+    passiveSystem = new PassiveSystem();
+    healthBars = new EnemyHealthBars(scene);
+    minimap = new Minimap();
+    minimap.hide();
+    metaSystem = new MetaSystem();
+    powerupSystem = new PowerupSystem(scene, particleSystem, audio);
+    hazardSystem = new HazardSystem(scene, particleSystem, audio);
 
     clock = new THREE.Clock();
 
@@ -683,7 +767,8 @@ function updatePlayer(deltaTime) {
 
     if (velocity.length() > 0) {
         velocity.normalize();
-        velocity.multiplyScalar(playerStats.speed * deltaTime);
+        const speed = playerStats.speed * powerupSystem.getSpeedMultiplier();
+        velocity.multiplyScalar(speed * deltaTime);
         player.position.add(velocity);
 
         player.position.x = Math.max(-45, Math.min(45, player.position.x));
@@ -792,22 +877,50 @@ function updateEnemies(deltaTime) {
         if (distToPlayer < collisionDist && !data.phased) {
             if (gameTime - data.lastDamageTime > 0.5) {
                 data.lastDamageTime = gameTime;
-                playerStats.health -= data.damage;
                 
-                comboCount = 0;
-                updateComboDisplay();
+                if (powerupSystem.isInvincible()) {
+                    particleSystem.emit({
+                        position: { x: player.position.x, y: 1, z: player.position.z },
+                        velocity: { x: 0, y: 3, z: 0 },
+                        color: { r: 0, g: 1, b: 1 },
+                        count: 15, spread: 1, size: 0.8, lifetime: 0.3, gravity: 0
+                    });
+                } else {
+                    const damageResult = passiveSystem.onTakeDamage(data.damage, playerStats, enemy.position, particleSystem);
+                    playerStats.health -= damageResult.reducedDamage;
+                    metaSystem.statistics.recordDamageTaken(damageResult.reducedDamage);
+                    metaSystem.statistics.recordHealth(playerStats.health, playerStats.maxHealth);
+                    
+                    if (damageResult.thornsDamage > 0) {
+                        data.health -= damageResult.thornsDamage;
+                        damageNumbers.spawn(new THREE.Vector3(enemy.position.x, 1.5, enemy.position.z), damageResult.thornsDamage, false);
+                        particleSystem.emit({
+                            position: { x: enemy.position.x, y: 1, z: enemy.position.z },
+                            velocity: { x: 0, y: 3, z: 0 },
+                            color: { r: 1, g: 0, b: 0.5 },
+                            count: 10, spread: 0.3, size: 0.6, lifetime: 0.2, gravity: 5
+                        });
+                        if (data.health <= 0) {
+                            handleEnemyDeath(enemy, i);
+                        }
+                    }
+                    
+                    comboCount = 0;
+                    updateComboDisplay();
 
-                player.children[0].material.emissive.setHex(0xff0000);
-                audio.playHurt();
-                screenShake.addTrauma(0.2 + data.damage / 100);
-                
-                setTimeout(() => {
-                    player.children[0].material.emissive.setHex(0x00ffff);
-                }, 100);
+                    player.children[0].material.emissive.setHex(0xff0000);
+                    audio.playHurt();
+                    screenShake.addTrauma(0.2 + damageResult.reducedDamage / 100);
+                    chromaticAberration.trigger(0.01 + damageResult.reducedDamage / 500);
+                    
+                    setTimeout(() => {
+                        player.children[0].material.emissive.setHex(0x00ffff);
+                    }, 100);
 
-                if (playerStats.health <= 0) {
-                    gameOver();
-                    return;
+                    if (playerStats.health <= 0) {
+                        gameOver();
+                        return;
+                    }
                 }
             }
         }
@@ -837,19 +950,25 @@ function updateEnemyProjectiles(deltaTime) {
         const dz = player.position.z - projectile.position.z;
         const distToPlayer = Math.sqrt(dx * dx + dz * dz);
         if (distToPlayer < 1) {
-            playerStats.health -= projectile.userData.damage;
-            player.children[0].material.emissive.setHex(0xff0000);
-            audio.playHurt();
-            screenShake.addTrauma(0.15);
-            
-            setTimeout(() => {
-                player.children[0].material.emissive.setHex(0x00ffff);
-            }, 100);
+            if (!powerupSystem.isInvincible()) {
+                const damageResult = passiveSystem.onTakeDamage(projectile.userData.damage, playerStats);
+                playerStats.health -= damageResult.reducedDamage;
+                metaSystem.statistics.recordDamageTaken(damageResult.reducedDamage);
+                
+                player.children[0].material.emissive.setHex(0xff0000);
+                audio.playHurt();
+                screenShake.addTrauma(0.15);
+                chromaticAberration.trigger(0.015);
+                
+                setTimeout(() => {
+                    player.children[0].material.emissive.setHex(0x00ffff);
+                }, 100);
 
+                if (playerStats.health <= 0) gameOver();
+            }
+            
             scene.remove(projectile);
             enemyProjectiles.splice(i, 1);
-
-            if (playerStats.health <= 0) gameOver();
             continue;
         }
 
@@ -870,6 +989,10 @@ function handleEnemyDeath(enemy, index) {
     comboCount++;
     comboTimer = COMBO_TIMEOUT;
     updateComboDisplay();
+    metaSystem.statistics.recordCombo(comboCount);
+    
+    const enemyType = data.isBoss ? 'boss' : (data.isElite ? 'elite' : 'normal');
+    metaSystem.statistics.recordKill(enemyType);
 
     if (data.explosionRadius) createExplosion(x, z, data.explosionRadius, data.explosionDamage);
 
@@ -888,6 +1011,10 @@ function handleEnemyDeath(enemy, index) {
         const offsetX = (Math.random() - 0.5) * 3;
         const offsetZ = (Math.random() - 0.5) * 3;
         createGem(x + offsetX, z + offsetZ, gemValue);
+    }
+    
+    if (powerupSystem.shouldDropPowerup(enemyType)) {
+        powerupSystem.spawnPowerup(new THREE.Vector3(x, 0, z));
     }
 
     damageNumbers.spawn(new THREE.Vector3(x, 1, z), data.maxHealth, data.isBoss || data.isElite);
@@ -928,24 +1055,41 @@ function updateProjectiles(deltaTime) {
             const dist = Math.sqrt(dx * dx + dz * dz);
 
             if (dist < hitRadius) {
-                data.health -= projectile.userData.damage;
+                let damage = projectile.userData.damage;
+                damage *= powerupSystem.getDamageMultiplier();
+                const critResult = passiveSystem.rollCrit(damage);
+                damage = critResult.damage;
+                
+                data.health -= damage;
+                metaSystem.statistics.recordDamageDealt(damage);
+                
+                const healAmount = passiveSystem.onDealDamage(damage, playerStats);
+                if (healAmount > 0) {
+                    metaSystem.statistics.recordHealing(healAmount);
+                    particleSystem.emit({
+                        position: { x: player.position.x, y: 1.5, z: player.position.z },
+                        velocity: { x: 0, y: 2, z: 0 },
+                        color: { r: 0.2, g: 1, b: 0.4 },
+                        count: 5, spread: 0.3, size: 0.5, lifetime: 0.3, gravity: -2
+                    });
+                }
                 
                 particleSystem.emit({
                     position: { x: projectile.position.x, y: projectile.position.y, z: projectile.position.z },
                     velocity: { x: -projectile.userData.velocity.x * 0.2, y: 5, z: -projectile.userData.velocity.z * 0.2 },
-                    color: { r: 1, g: 0.8, b: 0.2 },
-                    count: 8, spread: 0.3, size: 0.8, lifetime: 0.2, gravity: 10
+                    color: critResult.isCrit ? { r: 1, g: 0.5, b: 0 } : { r: 1, g: 0.8, b: 0.2 },
+                    count: critResult.isCrit ? 15 : 8, spread: 0.3, size: critResult.isCrit ? 1.2 : 0.8, lifetime: 0.2, gravity: 10
                 });
                 
                 audio.playHit();
                 
                 damageNumbers.spawn(
                     new THREE.Vector3(enemy.position.x, 1.5, enemy.position.z),
-                    projectile.userData.damage,
-                    false
+                    damage,
+                    critResult.isCrit
                 );
 
-                enemy.children[0].material.emissive.setHex(0xffffff);
+                enemy.children[0].material.emissive.setHex(critResult.isCrit ? 0xffaa00 : 0xffffff);
                 const originalEmissive = enemyTypes[data.type]?.emissive || 0x922b21;
                 setTimeout(() => {
                     if (enemy.children[0]) enemy.children[0].material.emissive.setHex(originalEmissive);
@@ -966,6 +1110,9 @@ function updateProjectiles(deltaTime) {
 }
 
 function updateGems(deltaTime) {
+    const baseMagnetRange = 5;
+    const magnetRange = passiveSystem.getGemPickupRadius(baseMagnetRange) * powerupSystem.getMagnetMultiplier();
+    
     for (let i = gems.length - 1; i >= 0; i--) {
         const gem = gems[i];
 
@@ -982,15 +1129,17 @@ function updateGems(deltaTime) {
         }
 
         const dist = player.position.distanceTo(gem.position);
-        if (dist < 5) {
+        if (dist < magnetRange) {
             const direction = new THREE.Vector3();
             direction.subVectors(player.position, gem.position).normalize();
-            const speed = 10 * (1 - dist / 5) + 5;
+            const speed = 10 * (1 - dist / magnetRange) + 5;
             gem.position.add(direction.multiplyScalar(speed * deltaTime));
         }
 
         if (dist < 1) {
-            playerStats.exp += gem.userData.value;
+            const expMultiplier = passiveSystem.getExpMultiplier();
+            playerStats.exp += Math.floor(gem.userData.value * expMultiplier);
+            metaSystem.statistics.recordGem();
             
             particleSystem.emit({
                 position: { x: gem.position.x, y: gem.position.y, z: gem.position.z },
@@ -1045,13 +1194,21 @@ function showLevelUpScreen() {
     const options = document.getElementById('upgrade-options');
     options.innerHTML = '';
 
-    const shuffled = [...upgrades].sort(() => Math.random() - 0.5);
-    const choices = shuffled.slice(0, 3);
+    const available = getAvailableUpgrades();
+    const shuffled = available.sort(() => Math.random() - 0.5);
+    const choices = shuffled.slice(0, 4);
 
     choices.forEach(upgrade => {
         const card = document.createElement('div');
-        card.className = 'upgrade-card';
-        card.innerHTML = `<h3>${upgrade.name}</h3><p>${upgrade.desc}</p>`;
+        const categoryClass = upgrade.category === 'weapon' ? 'weapon' : (upgrade.category === 'passive' ? 'passive' : '');
+        card.className = `upgrade-card ${categoryClass}`;
+        
+        let levelBadge = '';
+        if (upgrade.currentLevel !== undefined && upgrade.maxLevel) {
+            levelBadge = `<span class="level-badge">Lv ${upgrade.currentLevel} → ${upgrade.currentLevel + 1}</span>`;
+        }
+        
+        card.innerHTML = `<h3>${upgrade.name}</h3><p>${upgrade.desc}</p>${levelBadge}`;
         card.addEventListener('click', () => {
             upgrade.apply();
             hideLevelUpScreen();
@@ -1094,21 +1251,58 @@ function updateHUD() {
 
 function gameOver() {
     currentState = GameState.GAME_OVER;
+    minimap.hide();
 
+    const endResult = metaSystem.endRun(playerStats, gameTime);
+    
     const minutes = Math.floor(gameTime / 60);
     const seconds = Math.floor(gameTime % 60);
 
     document.getElementById('final-time').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     document.getElementById('final-level').textContent = playerStats.level;
     document.getElementById('final-kills').textContent = playerStats.killCount;
+    
+    if (endResult.scoreResult.isHighScore) {
+        const rankText = endResult.scoreResult.rank === 1 ? 'NEW HIGH SCORE!' : `Rank #${endResult.scoreResult.rank}`;
+        const highScoreDiv = document.createElement('div');
+        highScoreDiv.style.cssText = 'color: #ffd700; font-size: 28px; margin-top: 20px; text-shadow: 0 0 20px #ffd700; animation: recordPulse 0.5s ease-in-out infinite alternate;';
+        highScoreDiv.textContent = rankText;
+        document.getElementById('final-stats').appendChild(highScoreDiv);
+    }
+    
+    if (endResult.newAchievements.length > 0) {
+        endResult.newAchievements.forEach((ach, i) => {
+            setTimeout(() => showAchievementNotification(ach), i * 1500);
+        });
+    }
 
     document.getElementById('game-over-screen').style.display = 'flex';
+}
+
+function showAchievementNotification(achievement) {
+    const existing = document.getElementById('achievement-notification');
+    if (existing) existing.remove();
+    
+    const notif = document.createElement('div');
+    notif.id = 'achievement-notification';
+    notif.innerHTML = `
+        <span class="icon">${achievement.icon}</span>
+        <span class="text">
+            <div class="title">${achievement.name}</div>
+            <div class="desc">${achievement.desc}</div>
+        </span>
+    `;
+    document.body.appendChild(notif);
+    
+    setTimeout(() => notif.remove(), 4000);
 }
 
 function startGame() {
     audio.init();
     document.getElementById('start-screen').style.display = 'none';
     document.getElementById('hud').style.display = 'block';
+    minimap.show();
+    metaSystem.startRun();
     currentState = GameState.PLAYING;
     cameraBasePosition.copy(camera.position);
     cameraTargetPosition.copy(camera.position);
@@ -1147,9 +1341,22 @@ function restartGame() {
     cameraTargetPosition.set(0, 25, 20);
     camera.position.copy(cameraBasePosition);
     screenShake.trauma = 0;
+    
+    weaponSystem.reset();
+    passiveSystem.reset();
+    healthBars.reset();
+    powerupSystem.reset();
+    hazardSystem.reset();
+    metaSystem.startRun();
+    
+    const highScoreDiv = document.querySelector('#final-stats > div:last-child');
+    if (highScoreDiv && highScoreDiv.style.color === 'rgb(255, 215, 0)') {
+        highScoreDiv.remove();
+    }
 
     document.getElementById('game-over-screen').style.display = 'none';
     document.getElementById('hud').style.display = 'block';
+    minimap.show();
 
     currentState = GameState.PLAYING;
     clock.start();
@@ -1163,6 +1370,8 @@ function animate() {
 
     if (currentState === GameState.PLAYING) {
         gameTime += deltaTime;
+        metaSystem.statistics.updateTime(gameTime);
+        metaSystem.statistics.updateLevel(playerStats.level);
         
         if (comboTimer > 0) {
             comboTimer -= deltaTime;
@@ -1180,14 +1389,82 @@ function animate() {
         updateProjectiles(deltaTime);
         updateEnemyProjectiles(deltaTime);
         updateGems(deltaTime);
+        
+        weaponSystem.update(deltaTime, gameTime, player.position, enemies, handleWeaponHit);
+        powerupSystem.update(deltaTime, gameTime, player.position);
+        hazardSystem.update(deltaTime, gameTime, player.position, playerStats, enemies);
+        
+        enemies.forEach(enemy => healthBars.ensureHealthBar(enemy));
+        healthBars.update(camera, enemies);
+        minimap.update(player.position, enemies, gems);
+        
         updateHUD();
+        updateActiveEffectsDisplay();
+        
+        if (playerStats.health <= 0) {
+            gameOver();
+        }
     }
     
     particleSystem.update(rawDeltaTime);
     damageNumbers.update(rawDeltaTime);
     shockwaves.update(rawDeltaTime);
+    chromaticAberration.update(rawDeltaTime);
 
     composer.render();
+}
+
+function handleWeaponHit(enemy, index, damage) {
+    const data = enemy.userData;
+    data.health -= damage;
+    
+    metaSystem.statistics.recordDamageDealt(damage);
+    
+    const healAmount = passiveSystem.onDealDamage(damage, playerStats);
+    if (healAmount > 0) {
+        metaSystem.statistics.recordHealing(healAmount);
+    }
+    
+    damageNumbers.spawn(new THREE.Vector3(enemy.position.x, 1.5, enemy.position.z), damage, false);
+    audio.playHit();
+    
+    enemy.children[0].material.emissive.setHex(0xffffff);
+    const originalEmissive = enemyTypes[data.type]?.emissive || 0x922b21;
+    setTimeout(() => {
+        if (enemy.children[0]) enemy.children[0].material.emissive.setHex(originalEmissive);
+    }, 50);
+    
+    if (data.health <= 0) {
+        handleEnemyDeath(enemy, index);
+    }
+}
+
+function updateActiveEffectsDisplay() {
+    let container = document.getElementById('active-effects');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'active-effects';
+        document.body.appendChild(container);
+    }
+    
+    container.innerHTML = '';
+    
+    const effects = powerupSystem.getActiveEffects();
+    effects.forEach(effect => {
+        const remaining = Math.ceil(effect.remaining - gameTime);
+        if (remaining > 0) {
+            const div = document.createElement('div');
+            div.className = `active-effect ${effect.type}`;
+            const names = {
+                invincibility: 'SHIELD',
+                damageBoost: 'POWER',
+                speedBoost: 'SPEED',
+                magnetPulse: 'MAGNET'
+            };
+            div.textContent = `${names[effect.type]} ${remaining}s`;
+            container.appendChild(div);
+        }
+    });
 }
 
 function onWindowResize() {
