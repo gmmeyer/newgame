@@ -4,16 +4,18 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
-import { audio } from './audio.js';
+import { audio, DynamicMusic } from './audio.js';
 import { getTexture, getUpgradeIcon } from './textures.js';
 import { ParticleSystem } from './particles.js';
-import { ScreenShake, TimeController, DamageNumberSystem, ShockwaveSystem, ChromaticAberrationShader, ChromaticAberrationController } from './effects.js';
+import { ScreenShake, TimeController, DamageNumberSystem, ShockwaveSystem, ChromaticAberrationShader, ChromaticAberrationController, ScreenFlash, VignetteController } from './effects.js';
 import { WeaponSystem } from './weapons.js';
 import { HazardSystem } from './hazards.js';
 import { PassiveSystem, passiveUpgrades } from './passives.js';
 import { EnemyHealthBars, Minimap } from './ui.js';
 import { MetaSystem } from './meta.js';
 import { PowerupSystem } from './powerups.js';
+import { TutorialSystem } from './tutorial.js';
+import { MobileControls } from './mobile.js';
 
 const GameState = {
     MENU: 'menu',
@@ -45,6 +47,11 @@ let metaSystem;
 let powerupSystem;
 let hazardSystem;
 let chromaticAberration;
+let screenFlash;
+let vignetteController;
+let dynamicMusic;
+let tutorialSystem;
+let mobileControls;
 
 let cameraTargetPosition = new THREE.Vector3();
 let cameraBasePosition = new THREE.Vector3();
@@ -101,6 +108,59 @@ let difficultyMultiplier = 1;
 let currentDifficultyTier = 1;
 let lastBossSpawnTime = -90;
 let enemyProjectiles = [];
+
+const runTimeline = {
+    events: [],
+    
+    clear() {
+        this.events = [];
+    },
+    
+    addEvent(type, data) {
+        this.events.push({
+            time: gameTime,
+            type,
+            ...data
+        });
+    },
+    
+    recordLevelUp(level) {
+        this.addEvent('levelup', { level });
+    },
+    
+    recordBossKill(bossType) {
+        this.addEvent('bosskill', { bossType });
+    },
+    
+    recordDamageTaken(amount, source) {
+        this.addEvent('damage', { amount, source });
+    },
+    
+    recordUpgradeChosen(upgradeName) {
+        this.addEvent('upgrade', { upgradeName });
+    },
+    
+    recordMilestone(description) {
+        this.addEvent('milestone', { description });
+    },
+    
+    getRecap() {
+        const keyEvents = [];
+        
+        const levelUps = this.events.filter(e => e.type === 'levelup');
+        const bossKills = this.events.filter(e => e.type === 'bosskill');
+        const upgrades = this.events.filter(e => e.type === 'upgrade');
+        const bigHits = this.events.filter(e => e.type === 'damage' && e.amount > 20)
+            .sort((a, b) => b.amount - a.amount).slice(0, 3);
+        
+        levelUps.forEach(e => keyEvents.push({ ...e, icon: '⬆', color: '#ffff00' }));
+        bossKills.forEach(e => keyEvents.push({ ...e, icon: '💀', color: '#ff4400' }));
+        upgrades.slice(0, 5).forEach(e => keyEvents.push({ ...e, icon: '✦', color: '#00ffff' }));
+        bigHits.forEach(e => keyEvents.push({ ...e, icon: '💔', color: '#ff0000' }));
+        
+        return keyEvents.sort((a, b) => a.time - b.time);
+    }
+};
 
 const keys = {};
 
@@ -721,6 +781,8 @@ export function init() {
     timeController = new TimeController();
     damageNumbers = new DamageNumberSystem(scene);
     shockwaves = new ShockwaveSystem(scene);
+    screenFlash = new ScreenFlash();
+    vignetteController = new VignetteController();
     
     weaponSystem = new WeaponSystem(scene, particleSystem, shockwaves, screenShake, audio);
     passiveSystem = new PassiveSystem();
@@ -730,6 +792,7 @@ export function init() {
     metaSystem = new MetaSystem();
     powerupSystem = new PowerupSystem(scene, particleSystem, audio);
     hazardSystem = new HazardSystem(scene, particleSystem, audio);
+    mobileControls = new MobileControls(keys);
 
     clock = new THREE.Clock();
 
@@ -1407,6 +1470,11 @@ function updateEnemies(deltaTime) {
                     metaSystem.statistics.recordDamageTaken(damageResult.reducedDamage);
                     metaSystem.statistics.recordHealth(playerStats.health, playerStats.maxHealth);
                     
+                    screenFlash.damageFlash();
+                    vignetteController.damageSpike(damageResult.reducedDamage);
+                    chromaticAberration.trigger(0.015);
+                    runTimeline.recordDamageTaken(damageResult.reducedDamage, data.type || 'enemy');
+                    
                     if (damageResult.thornsDamage > 0) {
                         data.health -= damageResult.thornsDamage;
                         damageNumbers.spawn(new THREE.Vector3(enemy.position.x, 1.5, enemy.position.z), damageResult.thornsDamage, false);
@@ -1475,6 +1543,8 @@ function updateEnemyProjectiles(deltaTime) {
                 audio.playHurt();
                 screenShake.addTrauma(0.15);
                 chromaticAberration.trigger(0.015);
+                screenFlash.damageFlash();
+                vignetteController.damageSpike(damageResult.reducedDamage);
                 
                 setTimeout(() => {
                     player.children[0].material.emissive.setHex(0x00ffff);
@@ -1501,6 +1571,17 @@ function handleEnemyDeath(enemy, index) {
     const z = enemy.position.z;
 
     playDeathEffect(enemy);
+    
+    if (data.isBoss) {
+        screenFlash.bossDeathFlash();
+        timeController.slowMotion(0.5, 0.2);
+        chromaticAberration.trigger(0.04);
+        runTimeline.recordBossKill(data.type);
+    } else if (data.isElite) {
+        screenFlash.flash('#ffaa00', 0.2, 0.1);
+    } else {
+        screenFlash.killFlash();
+    }
     
     const prevCombo = comboCount;
     comboCount++;
@@ -1732,6 +1813,7 @@ function levelUp() {
     playerStats.exp -= playerStats.expToLevel;
     playerStats.expToLevel = Math.floor(playerStats.expToLevel * 1.5);
     playerStats.level++;
+    runTimeline.recordLevelUp(playerStats.level);
 
     particleSystem.emit({
         position: { x: player.position.x, y: 1, z: player.position.z },
@@ -1742,6 +1824,7 @@ function levelUp() {
     
     shockwaves.spawn(player.position.clone(), 0xffff00, 10);
     screenShake.addTrauma(0.2);
+    screenFlash.levelUpFlash();
     audio.playLevelUp();
 
     currentState = GameState.LEVEL_UP;
@@ -1777,6 +1860,7 @@ function showLevelUpScreen() {
         `;
         card.addEventListener('click', () => {
             upgrade.apply();
+            runTimeline.recordUpgradeChosen(upgrade.name);
             hideLevelUpScreen();
             audio.playGemPickup();
         });
@@ -1818,6 +1902,8 @@ function updateHUD() {
 function gameOver() {
     currentState = GameState.GAME_OVER;
     minimap.hide();
+    if (mobileControls) mobileControls.hide();
+    if (dynamicMusic) dynamicMusic.stop();
 
     const endResult = metaSystem.endRun(playerStats, gameTime);
     
@@ -1862,6 +1948,29 @@ function gameOver() {
             setTimeout(() => showUnlockNotification(char), 500 + i * 2000);
         });
     }
+    
+    const recapContainer = document.getElementById('recap-timeline');
+    if (recapContainer) {
+        const recap = runTimeline.getRecap();
+        recapContainer.innerHTML = recap.map(event => {
+            const mins = Math.floor(event.time / 60);
+            const secs = Math.floor(event.time % 60);
+            const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+            let text = '';
+            switch(event.type) {
+                case 'levelup': text = `Level ${event.level}`; break;
+                case 'bosskill': text = `Boss killed`; break;
+                case 'upgrade': text = event.upgradeName; break;
+                case 'damage': text = `-${Math.floor(event.amount)} HP`; break;
+                default: text = event.description || '';
+            }
+            return `<div class="recap-event" style="border-color: ${event.color}">
+                <span class="event-time">${timeStr}</span>
+                <span class="event-icon">${event.icon}</span>
+                <span class="event-text" style="color: ${event.color}">${text}</span>
+            </div>`;
+        }).join('');
+    }
 
     document.getElementById('game-over-screen').style.display = 'flex';
 }
@@ -1903,6 +2012,20 @@ function showAchievementNotification(achievement) {
 function startGame() {
     audio.init();
     
+    if (!dynamicMusic && audio.ctx) {
+        dynamicMusic = new DynamicMusic(audio.ctx, audio.masterGain);
+    }
+    if (dynamicMusic) {
+        dynamicMusic.start();
+    }
+    
+    if (!tutorialSystem) {
+        tutorialSystem = new TutorialSystem();
+    }
+    if (tutorialSystem.shouldShowTutorial()) {
+        setTimeout(() => tutorialSystem.start(), 500);
+    }
+    
     const character = metaSystem.unlocks.getCharacter(selectedCharacterId);
     if (character) {
         playerStats.health = character.stats.health;
@@ -1928,6 +2051,7 @@ function startGame() {
     document.getElementById('start-screen').style.display = 'none';
     document.getElementById('hud').style.display = 'block';
     minimap.show();
+    if (mobileControls) mobileControls.show();
     metaSystem.startRun();
     currentState = GameState.PLAYING;
     cameraBasePosition.copy(camera.position);
@@ -2060,6 +2184,8 @@ function quitToMenu() {
     document.getElementById('pause-screen').style.display = 'none';
     document.getElementById('hud').style.display = 'none';
     document.getElementById('start-screen').style.display = 'flex';
+    if (mobileControls) mobileControls.hide();
+    if (dynamicMusic) dynamicMusic.stop();
     currentState = GameState.MENU;
 }
 
@@ -2095,6 +2221,7 @@ function updatePauseScreen() {
 }
 
 function restartGame() {
+    runTimeline.clear();
     const character = metaSystem.unlocks.getCharacter(selectedCharacterId);
     const baseHealth = character ? character.stats.health : 100;
     const baseSpeed = character ? character.stats.speed : 8;
@@ -2212,6 +2339,15 @@ function animate() {
         
         updateHUD();
         updateActiveEffectsDisplay();
+        
+        vignetteController.update(rawDeltaTime, playerStats.health / playerStats.maxHealth);
+        
+        if (dynamicMusic) {
+            const intensity = Math.min(1, gameTime / 300 + (enemies.length / 50));
+            dynamicMusic.setIntensity(intensity);
+            dynamicMusic.setBossActive(enemies.some(e => e.userData.isBoss));
+            dynamicMusic.setLowHealth(playerStats.health / playerStats.maxHealth < 0.3);
+        }
         
         if (playerStats.health <= 0) {
             gameOver();

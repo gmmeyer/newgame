@@ -37,10 +37,18 @@ export class TimeController {
     constructor() {
         this.timeScale = 1;
         this.freezeDuration = 0;
+        this.slowMoDuration = 0;
+        this.slowMoScale = 1;
+        this.targetTimeScale = 1;
     }
     
     freeze(duration) {
         this.freezeDuration = Math.max(this.freezeDuration, duration);
+    }
+    
+    slowMotion(duration, scale = 0.3) {
+        this.slowMoDuration = duration;
+        this.slowMoScale = scale;
     }
     
     update(deltaTime) {
@@ -48,7 +56,117 @@ export class TimeController {
             this.freezeDuration -= deltaTime;
             return 0;
         }
+        
+        if (this.slowMoDuration > 0) {
+            this.slowMoDuration -= deltaTime;
+            this.targetTimeScale = this.slowMoScale;
+        } else {
+            this.targetTimeScale = 1;
+        }
+        
+        this.timeScale += (this.targetTimeScale - this.timeScale) * Math.min(1, deltaTime * 10);
+        
         return deltaTime * this.timeScale;
+    }
+}
+
+export class ScreenFlash {
+    constructor() {
+        this.overlay = null;
+        this.createOverlay();
+    }
+    
+    createOverlay() {
+        this.overlay = document.createElement('div');
+        this.overlay.id = 'screen-flash';
+        this.overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.05s ease-out;
+        `;
+        document.body.appendChild(this.overlay);
+    }
+    
+    flash(color = '#ffffff', intensity = 0.3, duration = 0.1) {
+        this.overlay.style.backgroundColor = color;
+        this.overlay.style.opacity = intensity;
+        
+        setTimeout(() => {
+            this.overlay.style.transition = `opacity ${duration}s ease-out`;
+            this.overlay.style.opacity = 0;
+        }, 16);
+        
+        setTimeout(() => {
+            this.overlay.style.transition = 'opacity 0.05s ease-out';
+        }, duration * 1000 + 50);
+    }
+    
+    killFlash() {
+        this.flash('#ffffff', 0.15, 0.08);
+    }
+    
+    bossDeathFlash() {
+        this.flash('#ff4400', 0.4, 0.3);
+    }
+    
+    damageFlash() {
+        this.flash('#ff0000', 0.25, 0.15);
+    }
+    
+    levelUpFlash() {
+        this.flash('#ffff00', 0.2, 0.2);
+    }
+}
+
+export class VignetteController {
+    constructor() {
+        this.overlay = null;
+        this.intensity = 0;
+        this.targetIntensity = 0;
+        this.pulsePhase = 0;
+        this.createOverlay();
+    }
+    
+    createOverlay() {
+        this.overlay = document.createElement('div');
+        this.overlay.id = 'vignette-overlay';
+        this.overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(255,0,0,0.6) 100%);
+        `;
+        document.body.appendChild(this.overlay);
+    }
+    
+    update(deltaTime, healthPercent) {
+        this.pulsePhase += deltaTime * 6;
+        
+        if (healthPercent < 0.3) {
+            const urgency = 1 - (healthPercent / 0.3);
+            const pulse = Math.sin(this.pulsePhase) * 0.15 + 0.85;
+            this.targetIntensity = urgency * 0.6 * pulse;
+        } else {
+            this.targetIntensity = 0;
+        }
+        
+        this.intensity += (this.targetIntensity - this.intensity) * Math.min(1, deltaTime * 5);
+        this.overlay.style.opacity = this.intensity;
+    }
+    
+    damageSpike(amount) {
+        this.intensity = Math.min(0.8, this.intensity + amount * 0.02);
     }
 }
 
