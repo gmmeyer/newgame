@@ -467,13 +467,15 @@ const WorldSystem = {
 
 const difficultyTiers = [
     { time: 0, name: 'I', enemies: ['basic', 'fast'] },
-    { time: 90, name: 'II', enemies: ['basic', 'fast', 'tank'] },
-    { time: 180, name: 'III', enemies: ['basic', 'fast', 'tank', 'exploder'] },
-    { time: 270, name: 'IV', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter'] },
-    { time: 360, name: 'V', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter', 'shooter'] },
-    { time: 480, name: 'VI', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter', 'shooter', 'ghost'] },
-    { time: 600, name: 'VII', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter', 'shooter', 'ghost', 'teleporter'] },
-    { time: 720, name: 'VIII', enemies: ['elite_basic', 'elite_fast', 'tank', 'exploder', 'splitter', 'shooter', 'ghost', 'teleporter'] }
+    { time: 60, name: 'II', enemies: ['basic', 'fast', 'zigzag'] },
+    { time: 120, name: 'III', enemies: ['basic', 'fast', 'zigzag', 'tank', 'bomber'] },
+    { time: 180, name: 'IV', enemies: ['basic', 'fast', 'zigzag', 'tank', 'bomber', 'exploder', 'vampire'] },
+    { time: 270, name: 'V', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter', 'vampire', 'shielder'] },
+    { time: 360, name: 'VI', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter', 'shooter', 'shielder', 'magnet'] },
+    { time: 450, name: 'VII', enemies: ['fast', 'tank', 'splitter', 'shooter', 'ghost', 'magnet', 'berserker', 'freezer'] },
+    { time: 540, name: 'VIII', enemies: ['tank', 'splitter', 'shooter', 'ghost', 'teleporter', 'berserker', 'swarm_mother', 'mirror'] },
+    { time: 660, name: 'IX', enemies: ['elite_basic', 'elite_fast', 'splitter', 'shooter', 'ghost', 'teleporter', 'swarm_mother', 'berserker'] },
+    { time: 780, name: 'X', enemies: ['elite_basic', 'elite_fast', 'teleporter', 'swarm_mother', 'berserker', 'freezer', 'mirror', 'vampire'] }
 ];
 
 const enemyTypes = {
@@ -596,6 +598,85 @@ const enemyTypes = {
         splitCount: 4, splitsIntoElites: true,
         gemCount: () => 12 + Math.floor(Math.random() * 8),
         deathParticles: { color: { r: 0, g: 1, b: 0.7 }, count: 120, size: 2.5 }
+    },
+    zigzag: {
+        geometry: () => new THREE.ConeGeometry(0.4, 0.8, 3),
+        color: 0xff66ff, emissive: 0xdd44dd,
+        health: 25, speed: 6, damage: 8, scale: 0.9, weight: 15,
+        zigzagAmplitude: 3, zigzagFrequency: 2,
+        gemCount: () => Math.ceil(Math.random() * 2),
+        deathParticles: { color: { r: 1, g: 0.4, b: 1 }, count: 25 }
+    },
+    vampire: {
+        geometry: () => new THREE.OctahedronGeometry(0.5, 0),
+        color: 0x990033, emissive: 0xcc0044,
+        health: 45, speed: 4, damage: 12, scale: 1.1, weight: 10,
+        lifeSteal: 0.3, healOnHit: true,
+        gemCount: () => Math.ceil(Math.random() * 2) + 1,
+        deathParticles: { color: { r: 0.8, g: 0, b: 0.2 }, count: 35 }
+    },
+    shielder: {
+        geometry: () => new THREE.CylinderGeometry(0.5, 0.5, 0.8, 8),
+        color: 0x4466ff, emissive: 0x2244dd,
+        health: 60, speed: 2.5, damage: 15, scale: 1.2, weight: 12,
+        hasShield: true, shieldHealth: 40, shieldRegen: 5,
+        gemCount: () => Math.ceil(Math.random() * 3) + 1,
+        deathParticles: { color: { r: 0.3, g: 0.4, b: 1 }, count: 40 }
+    },
+    bomber: {
+        geometry: () => new THREE.SphereGeometry(0.4, 8, 8),
+        color: 0xff4400, emissive: 0xff6600,
+        health: 20, speed: 5, damage: 5, scale: 0.9, weight: 12,
+        dropsBomb: true, bombTimer: 3, bombDamage: 25, bombRadius: 3,
+        gemCount: () => Math.ceil(Math.random() * 2),
+        deathParticles: { color: { r: 1, g: 0.3, b: 0 }, count: 30 }
+    },
+    magnet: {
+        geometry: () => new THREE.TorusKnotGeometry(0.3, 0.1, 32, 8),
+        color: 0xffff44, emissive: 0xdddd00,
+        health: 35, speed: 3, damage: 10, scale: 1, weight: 8,
+        pullsPlayer: true, pullStrength: 2, pullRange: 8,
+        gemCount: () => Math.ceil(Math.random() * 2) + 1,
+        deathParticles: { color: { r: 1, g: 1, b: 0.3 }, count: 35 }
+    },
+    mirror: {
+        geometry: () => new THREE.PlaneGeometry(0.8, 1.2),
+        color: 0xaaaaff, emissive: 0x8888dd,
+        health: 30, speed: 3.5, damage: 8, scale: 1, weight: 8,
+        reflectsProjectiles: true, reflectChance: 0.4,
+        gemCount: () => Math.ceil(Math.random() * 2) + 1,
+        deathParticles: { color: { r: 0.7, g: 0.7, b: 1 }, count: 30 }
+    },
+    swarm_mother: {
+        geometry: () => new THREE.DodecahedronGeometry(0.7, 0),
+        color: 0x44ff44, emissive: 0x22dd22,
+        health: 80, speed: 2, damage: 5, scale: 1.4, weight: 8,
+        spawnsMinions: true, minionType: 'swarm_child', minionCount: 2, spawnCooldown: 4,
+        gemCount: () => Math.ceil(Math.random() * 3) + 2,
+        deathParticles: { color: { r: 0.3, g: 1, b: 0.3 }, count: 50 }
+    },
+    swarm_child: {
+        geometry: () => new THREE.TetrahedronGeometry(0.25, 0),
+        color: 0x88ff88, emissive: 0x66dd66,
+        health: 8, speed: 7, damage: 3, scale: 0.5, weight: 0,
+        gemCount: () => 1,
+        deathParticles: { color: { r: 0.5, g: 1, b: 0.5 }, count: 10 }
+    },
+    berserker: {
+        geometry: () => new THREE.BoxGeometry(0.9, 0.9, 0.9),
+        color: 0xff0000, emissive: 0xdd0000,
+        health: 70, speed: 3, damage: 20, scale: 1.3, weight: 10,
+        enragesOnHit: true, enrageSpeedBonus: 2, enrageDamageBonus: 10,
+        gemCount: () => Math.ceil(Math.random() * 3) + 1,
+        deathParticles: { color: { r: 1, g: 0, b: 0 }, count: 45 }
+    },
+    freezer: {
+        geometry: () => new THREE.IcosahedronGeometry(0.45, 0),
+        color: 0x00ffff, emissive: 0x00ddff,
+        health: 40, speed: 3, damage: 8, scale: 1, weight: 10,
+        freezesPlayer: true, freezeDuration: 0.5, freezeRange: 2,
+        gemCount: () => Math.ceil(Math.random() * 2) + 1,
+        deathParticles: { color: { r: 0.5, g: 1, b: 1 }, count: 35 }
     }
 };
 
@@ -813,10 +894,16 @@ export function init() {
     document.getElementById('quit-btn').addEventListener('click', quitToMenu);
     document.getElementById('settings-back-btn').addEventListener('click', hideSettings);
     
+    const metaShopBtn = document.getElementById('meta-shop-btn');
+    const metaShopBackBtn = document.getElementById('meta-shop-back-btn');
+    if (metaShopBtn) metaShopBtn.addEventListener('click', openMetaShop);
+    if (metaShopBackBtn) metaShopBackBtn.addEventListener('click', closeMetaShop);
+    
     initSettingsListeners();
 
     initCharacterSelect();
     updateGlobalStatsDisplay();
+    updateSoulDisplay();
 
     renderer.render(scene, camera);
 }
@@ -895,6 +982,66 @@ function updateGlobalStatsDisplay() {
             <div class="stat-row"><span>Achievements:</span><span>${achievements.unlocked}/${achievements.total}</span></div>
         </div>
     `;
+}
+
+function updateSoulDisplay() {
+    const souls = metaSystem.metaUpgrades.getSouls();
+    const soulCount = document.getElementById('soul-count');
+    const shopSoulCount = document.getElementById('shop-soul-count');
+    if (soulCount) soulCount.textContent = souls.toLocaleString();
+    if (shopSoulCount) shopSoulCount.textContent = souls.toLocaleString();
+}
+
+function openMetaShop() {
+    renderMetaShop();
+    document.getElementById('meta-shop-screen').style.display = 'flex';
+}
+
+function closeMetaShop() {
+    document.getElementById('meta-shop-screen').style.display = 'none';
+}
+
+function renderMetaShop() {
+    updateSoulDisplay();
+    
+    const grid = document.getElementById('meta-upgrades-grid');
+    if (!grid) return;
+    
+    const upgrades = metaSystem.metaUpgrades.getUpgradesList();
+    
+    grid.innerHTML = upgrades.map(upgrade => {
+        const isMaxed = upgrade.isMaxed;
+        const canAfford = upgrade.canAfford;
+        const statusClass = isMaxed ? 'maxed' : (!canAfford ? 'cant-afford' : '');
+        
+        return `
+            <div class="meta-upgrade-card ${statusClass}" data-id="${upgrade.id}">
+                <div class="upgrade-header">
+                    <span class="upgrade-icon">${upgrade.icon}</span>
+                    <div>
+                        <div class="upgrade-name">${upgrade.name}</div>
+                        <div class="upgrade-level">Level ${upgrade.level}/${upgrade.maxLevel}</div>
+                    </div>
+                </div>
+                <div class="upgrade-desc">${upgrade.desc}</div>
+                <div class="upgrade-cost">
+                    ${isMaxed ? '' : `<span class="cost-amount">👻 ${upgrade.cost}</span>`}
+                    <span class="buy-text">${isMaxed ? 'MAXED' : (canAfford ? 'CLICK TO BUY' : 'NOT ENOUGH SOULS')}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    grid.querySelectorAll('.meta-upgrade-card:not(.maxed):not(.cant-afford)').forEach(card => {
+        card.addEventListener('click', () => {
+            const upgradeId = card.dataset.id;
+            const result = metaSystem.metaUpgrades.purchase(upgradeId);
+            if (result.success) {
+                audio.playGemPickup();
+                renderMetaShop();
+            }
+        });
+    });
 }
 
 function createPlayer() {
@@ -1027,7 +1174,20 @@ function createEnemy(x, z, forcedType = null) {
         shootCooldown: type.shootCooldown, projectileDamage: type.projectileDamage,
         teleportCooldown: type.teleportCooldown, teleportRange: type.teleportRange,
         phaseInterval: type.phaseInterval, isElite: type.isElite, isBoss: type.isBoss,
-        gemCount: type.gemCount, deathParticles: type.deathParticles
+        gemCount: type.gemCount, deathParticles: type.deathParticles,
+        zigzagAmplitude: type.zigzagAmplitude, zigzagFrequency: type.zigzagFrequency,
+        lifeSteal: type.lifeSteal, healOnHit: type.healOnHit,
+        hasShield: type.hasShield, shieldHealth: type.shieldHealth, 
+        currentShield: type.shieldHealth || 0, shieldRegen: type.shieldRegen,
+        dropsBomb: type.dropsBomb, bombTimer: type.bombTimer,
+        bombDamage: type.bombDamage, bombRadius: type.bombRadius, lastBombTime: 0,
+        pullsPlayer: type.pullsPlayer, pullStrength: type.pullStrength, pullRange: type.pullRange,
+        reflectsProjectiles: type.reflectsProjectiles, reflectChance: type.reflectChance,
+        spawnsMinions: type.spawnsMinions, minionType: type.minionType, 
+        minionCount: type.minionCount, spawnCooldown: type.spawnCooldown, lastSpawnTime: 0,
+        enragesOnHit: type.enragesOnHit, enrageSpeedBonus: type.enrageSpeedBonus,
+        enrageDamageBonus: type.enrageDamageBonus, isEnraged: false,
+        freezesPlayer: type.freezesPlayer, freezeDuration: type.freezeDuration, freezeRange: type.freezeRange
     };
 
     scene.add(enemyGroup);
@@ -1277,12 +1437,16 @@ function attack(deltaTime) {
 }
 
 function updatePlayer(deltaTime) {
+    const isFrozen = playerStats.frozenUntil && gameTime < playerStats.frozenUntil;
+    
     const velocity = new THREE.Vector3();
 
-    if (keys['w']) velocity.z -= 1;
-    if (keys['s']) velocity.z += 1;
-    if (keys['a']) velocity.x -= 1;
-    if (keys['d']) velocity.x += 1;
+    if (!isFrozen) {
+        if (keys['w']) velocity.z -= 1;
+        if (keys['s']) velocity.z += 1;
+        if (keys['a']) velocity.x -= 1;
+        if (keys['d']) velocity.x += 1;
+    }
 
     if (velocity.length() > 0) {
         velocity.normalize();
@@ -1299,6 +1463,15 @@ function updatePlayer(deltaTime) {
                 count: 1, spread: 0.1, size: 0.5, lifetime: 0.3, gravity: 0
             });
         }
+    }
+    
+    if (isFrozen && Math.random() < 0.2) {
+        particleSystem.emit({
+            position: { x: player.position.x, y: 1, z: player.position.z },
+            velocity: { x: (Math.random() - 0.5) * 2, y: 1, z: (Math.random() - 0.5) * 2 },
+            color: { r: 0.5, g: 1, b: 1 },
+            count: 1, spread: 0.3, size: 0.4, lifetime: 0.5, gravity: 0
+        });
     }
     
     WorldSystem.update(player.position);
@@ -1438,11 +1611,68 @@ function updateEnemies(deltaTime) {
                 awayDirection.y = 0;
                 enemy.position.add(awayDirection.multiplyScalar(data.speed * 0.5 * deltaTime));
             }
+        } else if (data.zigzagAmplitude) {
+            const direction = new THREE.Vector3();
+            direction.subVectors(player.position, enemy.position).normalize();
+            direction.y = 0;
+            const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
+            const zigzagOffset = Math.sin(gameTime * data.zigzagFrequency * Math.PI * 2) * data.zigzagAmplitude;
+            const moveDir = direction.add(perpendicular.multiplyScalar(zigzagOffset * 0.3));
+            enemy.position.add(moveDir.normalize().multiplyScalar(data.speed * deltaTime));
+        } else if (data.pullsPlayer && distToPlayer < data.pullRange) {
+            const pullDir = new THREE.Vector3().subVectors(enemy.position, player.position).normalize();
+            pullDir.y = 0;
+            player.position.add(pullDir.multiplyScalar(data.pullStrength * deltaTime));
+            
+            const direction = new THREE.Vector3();
+            direction.subVectors(player.position, enemy.position).normalize();
+            direction.y = 0;
+            enemy.position.add(direction.multiplyScalar(data.speed * deltaTime));
+        } else if (data.spawnsMinions) {
+            if (gameTime - (data.lastSpawnTime || 0) >= data.spawnCooldown) {
+                data.lastSpawnTime = gameTime;
+                for (let m = 0; m < data.minionCount; m++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = 1.5 + Math.random();
+                    createEnemy(
+                        enemy.position.x + Math.cos(angle) * dist,
+                        enemy.position.z + Math.sin(angle) * dist,
+                        data.minionType
+                    );
+                }
+                particleSystem.emit({
+                    position: { x: enemy.position.x, y: 1, z: enemy.position.z },
+                    velocity: { x: 0, y: 3, z: 0 },
+                    color: { r: 0.3, g: 1, b: 0.3 },
+                    count: 25, spread: 1.5, size: 1, lifetime: 0.5, gravity: 0
+                });
+            }
+            const direction = new THREE.Vector3();
+            direction.subVectors(player.position, enemy.position).normalize();
+            direction.y = 0;
+            enemy.position.add(direction.multiplyScalar(data.speed * deltaTime));
         } else {
             const direction = new THREE.Vector3();
             direction.subVectors(player.position, enemy.position).normalize();
             direction.y = 0;
             enemy.position.add(direction.multiplyScalar(data.speed * deltaTime));
+        }
+        
+        if (data.freezesPlayer && distToPlayer < data.freezeRange) {
+            if (!playerStats.frozenUntil || gameTime > playerStats.frozenUntil) {
+                playerStats.frozenUntil = gameTime + data.freezeDuration;
+                particleSystem.emit({
+                    position: { x: player.position.x, y: 1, z: player.position.z },
+                    velocity: { x: 0, y: 2, z: 0 },
+                    color: { r: 0.5, g: 1, b: 1 },
+                    count: 20, spread: 1, size: 0.8, lifetime: 0.4, gravity: 0
+                });
+            }
+        }
+        
+        if (data.dropsBomb && gameTime - (data.lastBombTime || 0) >= data.bombTimer) {
+            data.lastBombTime = gameTime;
+            hazardSystem.spawnLavaPool(enemy.position.clone(), data.bombRadius, data.bombDamage, 2);
         }
 
         enemy.children[0].rotation.y += deltaTime * 2;
@@ -1673,14 +1903,57 @@ function updateProjectiles(deltaTime) {
             const dist = Math.sqrt(dx * dx + dz * dz);
 
             if (dist < hitRadius) {
+                if (data.reflectsProjectiles && Math.random() < data.reflectChance) {
+                    projectile.userData.velocity.x *= -1;
+                    projectile.userData.velocity.z *= -1;
+                    projectile.userData.damage *= 0.5;
+                    particleSystem.emit({
+                        position: { x: enemy.position.x, y: 1, z: enemy.position.z },
+                        velocity: { x: 0, y: 3, z: 0 },
+                        color: { r: 0.7, g: 0.7, b: 1 },
+                        count: 10, spread: 0.5, size: 0.6, lifetime: 0.3, gravity: 0
+                    });
+                    continue;
+                }
+                
                 let damage = projectile.userData.damage;
                 damage *= powerupSystem.getDamageMultiplier();
                 damage *= getComboBonus().damageMultiplier;
                 const critResult = passiveSystem.rollCrit(damage);
                 damage = critResult.damage;
                 
+                if (data.hasShield && data.currentShield > 0) {
+                    const shieldDamage = Math.min(damage, data.currentShield);
+                    data.currentShield -= shieldDamage;
+                    damage -= shieldDamage;
+                    particleSystem.emit({
+                        position: { x: enemy.position.x, y: 1.5, z: enemy.position.z },
+                        velocity: { x: 0, y: 2, z: 0 },
+                        color: { r: 0.3, g: 0.5, b: 1 },
+                        count: 8, spread: 0.8, size: 0.6, lifetime: 0.3, gravity: 0
+                    });
+                }
+                
                 data.health -= damage;
                 metaSystem.statistics.recordDamageDealt(damage);
+                
+                if (data.enragesOnHit && !data.isEnraged) {
+                    data.isEnraged = true;
+                    data.speed += data.enrageSpeedBonus;
+                    data.damage += data.enrageDamageBonus;
+                    enemy.children[0].material.emissive.setHex(0xff0000);
+                    particleSystem.emit({
+                        position: { x: enemy.position.x, y: 1, z: enemy.position.z },
+                        velocity: { x: 0, y: 5, z: 0 },
+                        color: { r: 1, g: 0, b: 0 },
+                        count: 30, spread: 1, size: 1, lifetime: 0.5, gravity: 0
+                    });
+                }
+                
+                if (data.healOnHit && damage > 0) {
+                    const healAmount = Math.floor(damage * data.lifeSteal);
+                    data.health = Math.min(data.health + healAmount, data.maxHealth);
+                }
                 
                 const healAmount = passiveSystem.onDealDamage(damage, playerStats);
                 if (healAmount > 0) {
@@ -1949,6 +2222,11 @@ function gameOver() {
         });
     }
     
+    const soulsEarnedEl = document.getElementById('souls-earned-count');
+    if (soulsEarnedEl) {
+        soulsEarnedEl.textContent = endResult.soulsEarned || 0;
+    }
+    
     const recapContainer = document.getElementById('recap-timeline');
     if (recapContainer) {
         const recap = runTimeline.getRecap();
@@ -2000,13 +2278,16 @@ function showAchievementNotification(achievement) {
     notif.innerHTML = `
         <span class="icon">${achievement.icon}</span>
         <span class="text">
+            <div class="label">ACHIEVEMENT UNLOCKED</div>
             <div class="title">${achievement.name}</div>
             <div class="desc">${achievement.desc}</div>
         </span>
     `;
     document.body.appendChild(notif);
     
-    setTimeout(() => notif.remove(), 4000);
+    audio.playLevelUp();
+    
+    setTimeout(() => notif.remove(), 5000);
 }
 
 function startGame() {
@@ -2042,10 +2323,33 @@ function startGame() {
             });
         }
         
+        if (character.startingWeapons) {
+            character.startingWeapons.forEach(weaponId => {
+                if (weaponSystem[weaponId]) {
+                    weaponSystem[weaponId].upgrade();
+                }
+            });
+        }
+        
         if (player.children[0] && player.children[0].material) {
             player.children[0].material.color.setHex(character.color);
             player.children[0].material.emissive.setHex(character.color);
         }
+    }
+    
+    const metaEffects = metaSystem.getMetaEffects();
+    if (metaEffects) {
+        playerStats.maxHealth += metaEffects.health;
+        playerStats.health += metaEffects.health;
+        playerStats.damage *= metaEffects.damageMultiplier;
+        playerStats.speed *= metaEffects.speedMultiplier;
+        playerStats.critChance = metaEffects.critChance;
+        playerStats.damageReduction = metaEffects.damageReduction;
+        playerStats.xpMultiplier = metaEffects.xpMultiplier;
+        playerStats.pickupRangeMultiplier = metaEffects.pickupRange;
+        playerStats.hasRevival = metaEffects.revival;
+        playerStats.revivalHealth = metaEffects.revivalHealth;
+        playerStats.freeRerolls = metaEffects.freeRerolls;
     }
     
     document.getElementById('start-screen').style.display = 'none';

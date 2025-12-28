@@ -11,12 +11,26 @@
         <div id="start-screen">
             <h1>SURVIVOR 3D</h1>
             <p class="subtitle">RETRO SYNTH EDITION</p>
+            <div id="soul-balance" style="margin-bottom: 15px; font-size: 20px; color: #9966ff; text-shadow: 0 0 10px #9966ff;">
+                <span style="font-size: 24px;">👻</span> <span id="soul-count">0</span> Souls
+            </div>
             <div id="character-select"></div>
             <button id="start-btn">[ START GAME ]</button>
+            <button id="meta-shop-btn">[ SOUL SHOP ]</button>
             <div id="controls-info">
                 WASD to move | Survive the endless horde!
             </div>
             <div id="global-stats"></div>
+        </div>
+        
+        <div id="meta-shop-screen">
+            <h1>SOUL SHOP</h1>
+            <div class="soul-balance">
+                <span class="icon">👻</span>
+                <span id="shop-soul-count">0</span> Souls
+            </div>
+            <div id="meta-upgrades-grid"></div>
+            <button id="meta-shop-back-btn">[ BACK ]</button>
         </div>
 
         <div id="hud" style="display: none;">
@@ -100,6 +114,9 @@
                 <div>Time Survived: <span id="final-time">00:00</span></div>
                 <div>Level Reached: <span id="final-level">1</span></div>
                 <div>Enemies Killed: <span id="final-kills">0</span></div>
+            </div>
+            <div id="souls-earned" style="font-size: 24px; color: #9966ff; text-shadow: 0 0 15px #9966ff; margin: 20px 0;">
+                +<span id="souls-earned-count">0</span> 👻 Souls Earned
             </div>
             <div id="run-recap">
                 <h3>RUN TIMELINE</h3>

@@ -2,7 +2,9 @@ const STORAGE_KEYS = {
     HIGH_SCORES: 'survivor3d_highscores',
     ACHIEVEMENTS: 'survivor3d_achievements',
     UNLOCKS: 'survivor3d_unlocks',
-    STATISTICS: 'survivor3d_statistics'
+    STATISTICS: 'survivor3d_statistics',
+    META_UPGRADES: 'survivor3d_metaupgrades',
+    CURRENCY: 'survivor3d_currency'
 };
 
 export class HighScoreSystem {
@@ -224,6 +226,53 @@ export class UnlockSystem {
                 stats: { health: 80, speed: 9, damage: 22, attackSpeed: 1.1 },
                 startingPassives: ['lifeSteal'],
                 color: 0x8b0000
+            },
+            {
+                id: 'dasher',
+                name: 'Dasher',
+                desc: 'Dash through enemies on kill',
+                unlocked: false,
+                unlockReq: 'Get a 50x combo',
+                unlockCheck: (stats) => stats.bestCombo >= 50,
+                stats: { health: 70, speed: 11, damage: 18, attackSpeed: 1.2 },
+                ability: 'dash',
+                color: 0x00ffaa
+            },
+            {
+                id: 'guardian',
+                name: 'Guardian',
+                desc: 'Starts with shields, takes less damage',
+                unlocked: false,
+                unlockReq: 'Survive 10 minutes',
+                unlockCheck: (stats) => stats.bestTime >= 600,
+                stats: { health: 150, speed: 6, damage: 15, attackSpeed: 0.9 },
+                startingPassives: ['armor'],
+                startingWeapons: ['orbitingShields'],
+                color: 0x4488ff
+            },
+            {
+                id: 'bomber',
+                name: 'Bomber',
+                desc: 'Explosions deal +50% damage',
+                unlocked: false,
+                unlockReq: 'Kill 1000 enemies total',
+                unlockCheck: (stats) => stats.totalKills >= 1000,
+                stats: { health: 90, speed: 7, damage: 30, attackSpeed: 0.8 },
+                startingWeapons: ['areaNova'],
+                explosionBonus: 1.5,
+                color: 0xff6600
+            },
+            {
+                id: 'vampire_lord',
+                name: 'Vampire Lord',
+                desc: 'Massive life steal, but no natural regen',
+                unlocked: false,
+                unlockReq: 'Reach level 25',
+                unlockCheck: (stats) => stats.bestLevel >= 25,
+                stats: { health: 60, speed: 10, damage: 35, attackSpeed: 1.3 },
+                startingPassives: ['lifeSteal', 'lifeSteal'],
+                noRegen: true,
+                color: 0x660066
             }
         ];
     }
@@ -426,12 +475,265 @@ export class StatisticsSystem {
     }
 }
 
+export class MetaUpgradeSystem {
+    constructor() {
+        this.souls = this.loadCurrency();
+        this.upgrades = this.loadUpgrades();
+        this.definitions = this.defineUpgrades();
+    }
+    
+    defineUpgrades() {
+        return [
+            {
+                id: 'startHealth',
+                name: 'Vitality',
+                desc: '+10 starting HP per level',
+                icon: '❤️',
+                maxLevel: 10,
+                cost: (level) => 50 + level * 30,
+                effect: (level) => ({ health: level * 10 })
+            },
+            {
+                id: 'startDamage',
+                name: 'Power',
+                desc: '+5% starting damage per level',
+                icon: '⚔️',
+                maxLevel: 10,
+                cost: (level) => 75 + level * 40,
+                effect: (level) => ({ damageMultiplier: 1 + level * 0.05 })
+            },
+            {
+                id: 'startSpeed',
+                name: 'Swiftness',
+                desc: '+3% starting speed per level',
+                icon: '💨',
+                maxLevel: 5,
+                cost: (level) => 100 + level * 50,
+                effect: (level) => ({ speedMultiplier: 1 + level * 0.03 })
+            },
+            {
+                id: 'xpGain',
+                name: 'Wisdom',
+                desc: '+10% XP gain per level',
+                icon: '📚',
+                maxLevel: 10,
+                cost: (level) => 80 + level * 45,
+                effect: (level) => ({ xpMultiplier: 1 + level * 0.10 })
+            },
+            {
+                id: 'gemMagnet',
+                name: 'Magnetism',
+                desc: '+15% gem pickup range per level',
+                icon: '🧲',
+                maxLevel: 5,
+                cost: (level) => 60 + level * 35,
+                effect: (level) => ({ pickupRange: 1 + level * 0.15 })
+            },
+            {
+                id: 'revival',
+                name: 'Second Chance',
+                desc: 'Revive once per run with 30% HP',
+                icon: '💀',
+                maxLevel: 1,
+                cost: () => 500,
+                effect: () => ({ revival: true, revivalHealth: 0.3 })
+            },
+            {
+                id: 'startArmor',
+                name: 'Toughness',
+                desc: '+5% damage reduction per level',
+                icon: '🛡️',
+                maxLevel: 5,
+                cost: (level) => 120 + level * 60,
+                effect: (level) => ({ damageReduction: level * 0.05 })
+            },
+            {
+                id: 'critChance',
+                name: 'Precision',
+                desc: '+3% crit chance per level',
+                icon: '🎯',
+                maxLevel: 5,
+                cost: (level) => 90 + level * 50,
+                effect: (level) => ({ critChance: level * 0.03 })
+            },
+            {
+                id: 'soulBonus',
+                name: 'Soul Harvest',
+                desc: '+10% souls earned per level',
+                icon: '👻',
+                maxLevel: 10,
+                cost: (level) => 100 + level * 60,
+                effect: (level) => ({ soulMultiplier: 1 + level * 0.10 })
+            },
+            {
+                id: 'reroll',
+                name: 'Fate Weaver',
+                desc: '+1 free reroll per run',
+                icon: '🎲',
+                maxLevel: 3,
+                cost: (level) => 150 + level * 100,
+                effect: (level) => ({ freeRerolls: level })
+            }
+        ];
+    }
+    
+    loadCurrency() {
+        try {
+            const data = localStorage.getItem(STORAGE_KEYS.CURRENCY);
+            return data ? JSON.parse(data).souls || 0 : 0;
+        } catch {
+            return 0;
+        }
+    }
+    
+    saveCurrency() {
+        try {
+            localStorage.setItem(STORAGE_KEYS.CURRENCY, JSON.stringify({ souls: this.souls }));
+        } catch (e) {
+            console.warn('Could not save currency:', e);
+        }
+    }
+    
+    loadUpgrades() {
+        try {
+            const data = localStorage.getItem(STORAGE_KEYS.META_UPGRADES);
+            return data ? JSON.parse(data) : {};
+        } catch {
+            return {};
+        }
+    }
+    
+    saveUpgrades() {
+        try {
+            localStorage.setItem(STORAGE_KEYS.META_UPGRADES, JSON.stringify(this.upgrades));
+        } catch (e) {
+            console.warn('Could not save meta upgrades:', e);
+        }
+    }
+    
+    getLevel(upgradeId) {
+        return this.upgrades[upgradeId] || 0;
+    }
+    
+    getUpgrade(upgradeId) {
+        return this.definitions.find(u => u.id === upgradeId);
+    }
+    
+    getCost(upgradeId) {
+        const upgrade = this.getUpgrade(upgradeId);
+        if (!upgrade) return Infinity;
+        const level = this.getLevel(upgradeId);
+        if (level >= upgrade.maxLevel) return Infinity;
+        return upgrade.cost(level);
+    }
+    
+    canAfford(upgradeId) {
+        return this.souls >= this.getCost(upgradeId);
+    }
+    
+    purchase(upgradeId) {
+        const upgrade = this.getUpgrade(upgradeId);
+        if (!upgrade) return { success: false, reason: 'Invalid upgrade' };
+        
+        const level = this.getLevel(upgradeId);
+        if (level >= upgrade.maxLevel) return { success: false, reason: 'Max level reached' };
+        
+        const cost = this.getCost(upgradeId);
+        if (this.souls < cost) return { success: false, reason: 'Not enough souls' };
+        
+        this.souls -= cost;
+        this.upgrades[upgradeId] = level + 1;
+        
+        this.saveCurrency();
+        this.saveUpgrades();
+        
+        return { success: true, newLevel: level + 1, remaining: this.souls };
+    }
+    
+    addSouls(amount) {
+        const bonus = this.getEffect('soulMultiplier') || 1;
+        const earned = Math.floor(amount * bonus);
+        this.souls += earned;
+        this.saveCurrency();
+        return earned;
+    }
+    
+    getEffect(effectKey) {
+        let combined = effectKey.includes('Multiplier') ? 1 : 0;
+        
+        for (const def of this.definitions) {
+            const level = this.getLevel(def.id);
+            if (level > 0) {
+                const effect = def.effect(level);
+                if (effect[effectKey] !== undefined) {
+                    if (effectKey.includes('Multiplier')) {
+                        combined *= effect[effectKey];
+                    } else {
+                        combined += effect[effectKey];
+                    }
+                }
+            }
+        }
+        
+        return combined;
+    }
+    
+    getAllEffects() {
+        const effects = {
+            health: 0,
+            damageMultiplier: 1,
+            speedMultiplier: 1,
+            xpMultiplier: 1,
+            pickupRange: 1,
+            revival: false,
+            revivalHealth: 0,
+            damageReduction: 0,
+            critChance: 0,
+            soulMultiplier: 1,
+            freeRerolls: 0
+        };
+        
+        for (const def of this.definitions) {
+            const level = this.getLevel(def.id);
+            if (level > 0) {
+                const effect = def.effect(level);
+                for (const key in effect) {
+                    if (key.includes('Multiplier')) {
+                        effects[key] *= effect[key];
+                    } else if (typeof effects[key] === 'boolean') {
+                        effects[key] = effects[key] || effect[key];
+                    } else {
+                        effects[key] += effect[key];
+                    }
+                }
+            }
+        }
+        
+        return effects;
+    }
+    
+    getSouls() {
+        return this.souls;
+    }
+    
+    getUpgradesList() {
+        return this.definitions.map(def => ({
+            ...def,
+            level: this.getLevel(def.id),
+            cost: this.getCost(def.id),
+            canAfford: this.canAfford(def.id),
+            isMaxed: this.getLevel(def.id) >= def.maxLevel
+        }));
+    }
+}
+
 export class MetaSystem {
     constructor() {
         this.highScores = new HighScoreSystem();
         this.achievements = new AchievementSystem();
         this.unlocks = new UnlockSystem();
         this.statistics = new StatisticsSystem();
+        this.metaUpgrades = new MetaUpgradeSystem();
     }
     
     endRun(playerStats, gameTime) {
@@ -454,15 +756,34 @@ export class MetaSystem {
         const newAchievements = this.achievements.check(combinedStats);
         const newUnlocks = this.unlocks.checkUnlocks(this.statistics.getGlobalStats());
         
+        const baseSouls = this.calculateSouls(runStats, gameTime, playerStats.level);
+        const soulsEarned = this.metaUpgrades.addSouls(baseSouls);
+        
         return {
             runStats,
             scoreResult,
             newAchievements,
-            newUnlocks
+            newUnlocks,
+            soulsEarned,
+            totalSouls: this.metaUpgrades.getSouls()
         };
+    }
+    
+    calculateSouls(runStats, gameTime, level) {
+        let souls = 0;
+        souls += Math.floor(gameTime / 10);
+        souls += level * 5;
+        souls += Math.floor(runStats.killCount / 10);
+        souls += runStats.bossKills * 25;
+        souls += Math.floor(runStats.maxCombo / 5);
+        return souls;
     }
     
     startRun() {
         this.statistics.resetRun();
+    }
+    
+    getMetaEffects() {
+        return this.metaUpgrades.getAllEffects();
     }
 }
