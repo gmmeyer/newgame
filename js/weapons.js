@@ -12,15 +12,20 @@ export class OrbitingShields {
         this.baseRadius = 2.5;
         this.rotationSpeed = 2;
         this.damageCooldown = 0.3;
+        this.isEvolved = false;
     }
     
     get isActive() { return this.level > 0; }
-    get count() { return this.baseCount + Math.floor(this.level / 2); }
-    get damage() { return this.baseDamage + this.level * 8; }
-    get radius() { return this.baseRadius + this.level * 0.3; }
+    get count() { return this.baseCount + Math.floor(this.level / 2) + (this.isEvolved ? 2 : 0); }
+    get damage() { return (this.baseDamage + this.level * 8) * (this.isEvolved ? 2.5 : 1); }
+    get radius() { return this.baseRadius + this.level * 0.3 + (this.isEvolved ? 1 : 0); }
     
     upgrade() {
-        this.level++;
+        if (this.level >= 5 && !this.isEvolved) {
+            this.isEvolved = true;
+        } else {
+            this.level++;
+        }
         this.rebuildShields();
     }
     
@@ -30,13 +35,15 @@ export class OrbitingShields {
         
         const shieldTexture = getTexture('shield');
         const count = this.count;
+        const color = this.isEvolved ? 0xff00ff : 0x00ffff;
+        
         for (let i = 0; i < count; i++) {
-            const geometry = new THREE.SphereGeometry(0.4, 16, 16);
+            const geometry = new THREE.SphereGeometry(this.isEvolved ? 0.6 : 0.4, 16, 16);
             const material = new THREE.MeshStandardMaterial({
                 map: shieldTexture,
-                color: 0x00ffff,
-                emissive: 0x00ffff,
-                emissiveIntensity: 0.8,
+                color: color,
+                emissive: color,
+                emissiveIntensity: this.isEvolved ? 1.5 : 0.8,
                 emissiveMap: shieldTexture,
                 transparent: true,
                 opacity: 0.9,
@@ -57,20 +64,22 @@ export class OrbitingShields {
         if (!this.isActive) return;
         
         const radius = this.radius;
+        const rotationSpeed = this.rotationSpeed * (this.isEvolved ? 1.5 : 1);
+        
         this.shields.forEach(shield => {
-            shield.userData.angle += this.rotationSpeed * deltaTime;
+            shield.userData.angle += rotationSpeed * deltaTime;
             shield.position.x = playerPosition.x + Math.cos(shield.userData.angle) * radius;
             shield.position.z = playerPosition.z + Math.sin(shield.userData.angle) * radius;
             shield.position.y = 1;
-            shield.rotation.x += deltaTime * 3;
-            shield.rotation.y += deltaTime * 2;
+            shield.rotation.x += deltaTime * (this.isEvolved ? 6 : 3);
+            shield.rotation.y += deltaTime * (this.isEvolved ? 4 : 2);
             
-            if (Math.random() < 0.1) {
+            if (Math.random() < (this.isEvolved ? 0.3 : 0.1)) {
                 this.particleSystem.emit({
                     position: { x: shield.position.x, y: shield.position.y, z: shield.position.z },
                     velocity: { x: 0, y: 1, z: 0 },
-                    color: { r: 0, g: 1, b: 1 },
-                    count: 1, spread: 0.1, size: 0.3, lifetime: 0.2, gravity: 0
+                    color: this.isEvolved ? { r: 1, g: 0, b: 1 } : { r: 0, g: 1, b: 1 },
+                    count: 1, spread: 0.1, size: this.isEvolved ? 0.5 : 0.3, lifetime: 0.2, gravity: 0
                 });
             }
             
@@ -79,7 +88,7 @@ export class OrbitingShields {
                 if (enemy.userData.phased) continue;
                 
                 const dist = shield.position.distanceTo(enemy.position);
-                const hitRadius = enemy.userData.isBoss ? 2.5 : 1.2;
+                const hitRadius = (enemy.userData.isBoss ? 2.5 : 1.2) * (this.isEvolved ? 1.5 : 1);
                 
                 if (dist < hitRadius) {
                     const enemyId = enemy.uuid;
@@ -91,8 +100,8 @@ export class OrbitingShields {
                         this.particleSystem.emit({
                             position: { x: shield.position.x, y: 1, z: shield.position.z },
                             velocity: { x: 0, y: 3, z: 0 },
-                            color: { r: 0, g: 1, b: 1 },
-                            count: 10, spread: 0.3, size: 0.6, lifetime: 0.3, gravity: 5
+                            color: this.isEvolved ? { r: 1, g: 0, b: 1 } : { r: 0, g: 1, b: 1 },
+                            count: this.isEvolved ? 20 : 10, spread: 0.3, size: 0.6, lifetime: 0.3, gravity: 5
                         });
                         
                         if (onHit) onHit(enemy, i, this.damage);
@@ -106,6 +115,7 @@ export class OrbitingShields {
         this.shields.forEach(s => this.scene.remove(s));
         this.shields = [];
         this.level = 0;
+        this.isEvolved = false;
     }
 }
 
@@ -121,14 +131,21 @@ export class AreaNova {
         this.baseRadius = 6;
         this.baseCooldown = 4;
         this.lastFireTime = -999;
+        this.isEvolved = false;
     }
     
     get isActive() { return this.level > 0; }
-    get damage() { return this.baseDamage + this.level * 20; }
-    get radius() { return this.baseRadius + this.level * 1.5; }
-    get cooldown() { return Math.max(1.5, this.baseCooldown - this.level * 0.4); }
+    get damage() { return (this.baseDamage + this.level * 20) * (this.isEvolved ? 2 : 1); }
+    get radius() { return this.baseRadius + this.level * 1.5 + (this.isEvolved ? 4 : 0); }
+    get cooldown() { return Math.max(this.isEvolved ? 1.0 : 1.5, this.baseCooldown - this.level * 0.4); }
     
-    upgrade() { this.level++; }
+    upgrade() {
+        if (this.level >= 5 && !this.isEvolved) {
+            this.isEvolved = true;
+        } else {
+            this.level++;
+        }
+    }
     
     update(gameTime, playerPosition, enemies, onHit) {
         if (!this.isActive) return;
@@ -136,14 +153,17 @@ export class AreaNova {
         
         this.lastFireTime = gameTime;
         
+        const color = this.isEvolved ? { r: 1, g: 0.1, b: 0.5 } : { r: 1, g: 0.5, b: 0 };
+        const shockColor = this.isEvolved ? 0xff0066 : 0xff6600;
+        
         this.particleSystem.emit({
             position: { x: playerPosition.x, y: 1, z: playerPosition.z },
             velocity: { x: 0, y: 5, z: 0 },
-            color: { r: 1, g: 0.5, b: 0 },
-            count: 60, spread: 1.5, size: 2, lifetime: 0.5, gravity: 0
+            color: color,
+            count: this.isEvolved ? 120 : 60, spread: this.isEvolved ? 3 : 1.5, size: this.isEvolved ? 3 : 2, lifetime: 0.6, gravity: 0
         });
         
-        for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+        for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / (this.isEvolved ? 16 : 8)) {
             const dist = this.radius * 0.7;
             this.particleSystem.emit({
                 position: { 
@@ -151,14 +171,14 @@ export class AreaNova {
                     y: 0.5, 
                     z: playerPosition.z + Math.sin(angle) * dist 
                 },
-                velocity: { x: Math.cos(angle) * 5, y: 3, z: Math.sin(angle) * 5 },
-                color: { r: 1, g: 0.3, b: 0 },
-                count: 5, spread: 0.3, size: 1.2, lifetime: 0.4, gravity: 5
+                velocity: { x: Math.cos(angle) * (this.isEvolved ? 10 : 5), y: 3, z: Math.sin(angle) * (this.isEvolved ? 10 : 5) },
+                color: this.isEvolved ? { r: 0.8, g: 0, b: 1 } : { r: 1, g: 0.3, b: 0 },
+                count: this.isEvolved ? 8 : 5, spread: 0.3, size: 1.2, lifetime: 0.4, gravity: 5
             });
         }
         
-        this.shockwaves.spawn(playerPosition.clone(), 0xff6600, this.radius);
-        this.screenShake.addTrauma(0.3);
+        this.shockwaves.spawn(playerPosition.clone(), shockColor, this.radius);
+        this.screenShake.addTrauma(this.isEvolved ? 0.6 : 0.3);
         this.audio.playExplosion();
         
         for (let i = enemies.length - 1; i >= 0; i--) {
@@ -173,7 +193,7 @@ export class AreaNova {
         }
     }
     
-    reset() { this.level = 0; this.lastFireTime = -999; }
+    reset() { this.level = 0; this.lastFireTime = -999; this.isEvolved = false; }
 }
 
 export class ChainLightning {
@@ -188,15 +208,22 @@ export class ChainLightning {
         this.baseCooldown = 1.5;
         this.lastFireTime = -999;
         this.lightningBolts = [];
+        this.isEvolved = false;
     }
     
     get isActive() { return this.level > 0; }
-    get damage() { return this.baseDamage + this.level * 10; }
-    get chainCount() { return this.baseChainCount + Math.floor(this.level / 2); }
-    get range() { return this.baseRange + this.level * 1; }
-    get cooldown() { return Math.max(0.5, this.baseCooldown - this.level * 0.15); }
+    get damage() { return (this.baseDamage + this.level * 10) * (this.isEvolved ? 1.5 : 1); }
+    get chainCount() { return this.baseChainCount + Math.floor(this.level / 2) + (this.isEvolved ? 5 : 0); }
+    get range() { return this.baseRange + this.level * 1 + (this.isEvolved ? 5 : 0); }
+    get cooldown() { return Math.max(this.isEvolved ? 0.3 : 0.5, this.baseCooldown - this.level * 0.15); }
     
-    upgrade() { this.level++; }
+    upgrade() {
+        if (this.level >= 5 && !this.isEvolved) {
+            this.isEvolved = true;
+        } else {
+            this.level++;
+        }
+    }
     
     createBolt(start, end, color = 0x00ffff) {
         const points = [start.clone()];
@@ -283,9 +310,9 @@ export class ChainLightning {
             
             const targetPos = currentTarget.position.clone();
             targetPos.y = 1;
-            this.createBolt(previousPos, targetPos, chain === 0 ? 0x00ffff : 0x88ffff);
+            this.createBolt(previousPos, targetPos, chain === 0 ? (this.isEvolved ? 0xff00ff : 0x00ffff) : (this.isEvolved ? 0xff88ff : 0x88ffff));
             
-            const damageMultiplier = 1 - chain * 0.15;
+            const damageMultiplier = 1 - chain * (this.isEvolved ? 0.05 : 0.15);
             const idx = enemies.indexOf(currentTarget);
             if (idx !== -1 && onHit) {
                 onHit(currentTarget, idx, this.damage * damageMultiplier);
@@ -318,6 +345,7 @@ export class ChainLightning {
     reset() {
         this.level = 0;
         this.lastFireTime = -999;
+        this.isEvolved = false;
         this.lightningBolts.forEach(b => {
             this.scene.remove(b);
             b.geometry.dispose();
@@ -342,18 +370,29 @@ export class Flamethrower {
         this.burnDamagePerSecond = 5;
         this.flameAngle = 0;
         this.burningEnemies = new Map();
+        this.isEvolved = false;
+        this.hazardSystem = null;
     }
     
     get isActive() { return this.level > 0; }
-    get damage() { return this.baseDamage + this.level * 4; }
-    get range() { return this.baseRange + this.level * 0.8; }
-    get coneAngle() { return this.baseConeAngle + this.level * 0.05; }
-    get burnDPS() { return this.burnDamagePerSecond + this.level * 2; }
+    get damage() { return (this.baseDamage + this.level * 4) * (this.isEvolved ? 1.5 : 1); }
+    get range() { return this.baseRange + this.level * 0.8 + (this.isEvolved ? 3 : 0); }
+    get coneAngle() { return this.baseConeAngle + this.level * 0.05 + (this.isEvolved ? Math.PI / 4 : 0); }
+    get burnDPS() { return (this.burnDamagePerSecond + this.level * 2) * (this.isEvolved ? 3 : 1); }
     
-    upgrade() { this.level++; }
+    upgrade() {
+        if (this.level >= 5 && !this.isEvolved) {
+            this.isEvolved = true;
+        } else {
+            this.level++;
+        }
+    }
     
-    update(deltaTime, gameTime, playerPosition, enemies, playerDirection, onHit) {
+    update(deltaTime, gameTime, playerPosition, enemies, playerDirection, onHit, hazardSystem) {
         if (!this.isActive) return;
+        
+        const color = this.isEvolved ? { r: 0, g: 0.5, b: 1 } : { r: 1, g: 0.3, b: 0 };
+        const secondaryColor = this.isEvolved ? { r: 0.3, g: 0.8, b: 1 } : { r: 1, g: 0.7, b: 0 };
         
         for (const [enemyId, burnData] of this.burningEnemies) {
             burnData.timer -= deltaTime;
@@ -369,7 +408,7 @@ export class Flamethrower {
                     this.particleSystem.emit({
                         position: { x: enemy.position.x, y: 1.5, z: enemy.position.z },
                         velocity: { x: 0, y: 2, z: 0 },
-                        color: { r: 1, g: 0.3, b: 0 },
+                        color: color,
                         count: 3, spread: 0.3, size: 0.5, lifetime: 0.3, gravity: -1
                     });
                 }
@@ -386,7 +425,7 @@ export class Flamethrower {
         this.flameAngle += deltaTime * 2;
         const baseAngle = Math.atan2(playerDirection.z, playerDirection.x);
         
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < (this.isEvolved ? 10 : 5); i++) {
             const spreadAngle = baseAngle + (Math.random() - 0.5) * this.coneAngle;
             const dist = Math.random() * this.range;
             const x = playerPosition.x + Math.cos(spreadAngle) * dist;
@@ -395,9 +434,13 @@ export class Flamethrower {
             this.particleSystem.emit({
                 position: { x, y: 0.8, z },
                 velocity: { x: Math.cos(spreadAngle) * 3, y: 1 + Math.random(), z: Math.sin(spreadAngle) * 3 },
-                color: { r: 1, g: 0.3 + Math.random() * 0.4, b: 0 },
+                color: Math.random() > 0.3 ? color : secondaryColor,
                 count: 2, spread: 0.2, size: 0.8 + Math.random() * 0.5, lifetime: 0.3, gravity: -2
             });
+
+            if (this.isEvolved && hazardSystem && Math.random() < 0.05) {
+                hazardSystem.spawnFireTrail(new THREE.Vector3(x, 0, z), 1.5, 3);
+            }
         }
         
         for (let i = enemies.length - 1; i >= 0; i--) {
@@ -425,6 +468,7 @@ export class Flamethrower {
     
     reset() {
         this.level = 0;
+        this.isEvolved = false;
         this.burningEnemies.clear();
     }
 }
@@ -441,23 +485,31 @@ export class Boomerang {
         this.baseCooldown = 2;
         this.lastFireTime = -999;
         this.boomerangs = [];
+        this.isEvolved = false;
     }
     
     get isActive() { return this.level > 0; }
-    get damage() { return this.baseDamage + this.level * 12; }
-    get speed() { return this.baseSpeed + this.level * 1; }
-    get range() { return this.baseRange + this.level * 2; }
-    get cooldown() { return Math.max(0.8, this.baseCooldown - this.level * 0.2); }
-    get count() { return 1 + Math.floor(this.level / 3); }
+    get damage() { return (this.baseDamage + this.level * 12) * (this.isEvolved ? 2 : 1); }
+    get speed() { return this.baseSpeed + this.level * 1 + (this.isEvolved ? 5 : 0); }
+    get range() { return this.baseRange + this.level * 2 + (this.isEvolved ? 5 : 0); }
+    get cooldown() { return Math.max(this.isEvolved ? 0.4 : 0.8, this.baseCooldown - this.level * 0.2); }
+    get count() { return 1 + Math.floor(this.level / 3) + (this.isEvolved ? 2 : 0); }
     
-    upgrade() { this.level++; }
+    upgrade() {
+        if (this.level >= 5 && !this.isEvolved) {
+            this.isEvolved = true;
+        } else {
+            this.level++;
+        }
+    }
     
     createBoomerang(position, direction) {
-        const geometry = new THREE.TorusGeometry(0.4, 0.1, 8, 16);
+        const geometry = new THREE.TorusGeometry(this.isEvolved ? 0.6 : 0.4, 0.1, 8, 16);
+        const color = this.isEvolved ? 0x00ffff : 0xffaa00;
         const material = new THREE.MeshStandardMaterial({
-            color: 0xffaa00,
-            emissive: 0xffaa00,
-            emissiveIntensity: 0.6,
+            color: color,
+            emissive: color,
+            emissiveIntensity: this.isEvolved ? 1.0 : 0.6,
             metalness: 0.8,
             roughness: 0.2
         });
@@ -487,7 +539,7 @@ export class Boomerang {
             const boom = this.boomerangs[i];
             const data = boom.userData;
             
-            data.spin += deltaTime * 15;
+            data.spin += deltaTime * (this.isEvolved ? 25 : 15);
             boom.rotation.z = data.spin;
             
             const moveDir = data.returning 
@@ -519,17 +571,21 @@ export class Boomerang {
                 if (data.hitEnemies.has(enemy.uuid)) continue;
                 
                 const dist = boom.position.distanceTo(enemy.position);
-                const hitRadius = enemy.userData.isBoss ? 2.5 : 1.2;
+                const hitRadius = (enemy.userData.isBoss ? 2.5 : 1.2) * (this.isEvolved ? 1.5 : 1);
                 
                 if (dist < hitRadius) {
                     data.hitEnemies.add(enemy.uuid);
                     if (onHit) onHit(enemy, j, this.damage);
                     
+                    if (this.isEvolved) {
+                        enemy.userData.frozenUntil = gameTime + 0.5;
+                    }
+                    
                     this.particleSystem.emit({
                         position: { x: boom.position.x, y: 1, z: boom.position.z },
                         velocity: { x: 0, y: 3, z: 0 },
-                        color: { r: 1, g: 0.6, b: 0 },
-                        count: 8, spread: 0.4, size: 0.6, lifetime: 0.3, gravity: 5
+                        color: this.isEvolved ? { r: 0.5, g: 1, b: 1 } : { r: 1, g: 0.6, b: 0 },
+                        count: this.isEvolved ? 15 : 8, spread: 0.4, size: 0.6, lifetime: 0.3, gravity: 5
                     });
                 }
             }
@@ -538,7 +594,7 @@ export class Boomerang {
                 for (let j = gems.length - 1; j >= 0; j--) {
                     const gem = gems[j];
                     const dist = boom.position.distanceTo(gem.position);
-                    if (dist < 2) {
+                    if (dist < (this.isEvolved ? 4 : 2)) {
                         onGemCollect(gem, j);
                     }
                 }
@@ -548,7 +604,7 @@ export class Boomerang {
                 this.particleSystem.emit({
                     position: { x: boom.position.x, y: boom.position.y, z: boom.position.z },
                     velocity: { x: -moveDir.x * 2, y: 0.5, z: -moveDir.z * 2 },
-                    color: { r: 1, g: 0.5, b: 0 },
+                    color: this.isEvolved ? { r: 0, g: 1, b: 1 } : { r: 1, g: 0.5, b: 0 },
                     count: 1, spread: 0.1, size: 0.4, lifetime: 0.2, gravity: 0
                 });
             }
@@ -574,7 +630,7 @@ export class Boomerang {
                     const dir = new THREE.Vector3().subVectors(nearest.position, playerPosition);
                     dir.y = 0;
                     if (count > 1) {
-                        const spreadAngle = (c - (count - 1) / 2) * 0.3;
+                        const spreadAngle = (c - (count - 1) / 2) * (this.isEvolved ? 0.2 : 0.3);
                         dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), spreadAngle);
                     }
                     this.createBoomerang(playerPosition, dir);
@@ -587,6 +643,7 @@ export class Boomerang {
     reset() {
         this.level = 0;
         this.lastFireTime = -999;
+        this.isEvolved = false;
         this.boomerangs.forEach(b => {
             this.scene.remove(b);
             b.geometry.dispose();
@@ -610,16 +667,21 @@ export class OrbitalLaser {
         this.lastTickTime = 0;
         this.beams = [];
         this.beamMeshes = [];
+        this.isEvolved = false;
     }
     
     get isActive() { return this.level > 0; }
-    get damage() { return this.baseDamage + this.level * 8; }
-    get length() { return this.baseLength + this.level * 1.5; }
-    get beamCount() { return 1 + Math.floor(this.level / 2); }
-    get speed() { return this.rotationSpeed + this.level * 0.2; }
+    get damage() { return (this.baseDamage + this.level * 8) * (this.isEvolved ? 2 : 1); }
+    get length() { return this.baseLength + this.level * 1.5 + (this.isEvolved ? 5 : 0); }
+    get beamCount() { return 1 + Math.floor(this.level / 2) + (this.isEvolved ? 1 : 0); }
+    get speed() { return (this.rotationSpeed + this.level * 0.2) * (this.isEvolved ? 1.5 : 1); }
     
     upgrade() {
-        this.level++;
+        if (this.level >= 5 && !this.isEvolved) {
+            this.isEvolved = true;
+        } else {
+            this.level++;
+        }
         this.rebuildBeams();
     }
     
@@ -633,14 +695,15 @@ export class OrbitalLaser {
         
         const count = this.beamCount;
         for (let i = 0; i < count; i++) {
-            const geometry = new THREE.CylinderGeometry(0.15, 0.15, this.length, 8);
+            const geometry = new THREE.CylinderGeometry(this.isEvolved ? 0.3 : 0.15, this.isEvolved ? 0.3 : 0.15, this.length, 8);
             geometry.rotateZ(Math.PI / 2);
             geometry.translate(this.length / 2, 0, 0);
             
+            const color = this.isEvolved ? 0x00ffaa : 0xff0066;
             const material = new THREE.MeshStandardMaterial({
-                color: 0xff0066,
-                emissive: 0xff0066,
-                emissiveIntensity: 1,
+                color: color,
+                emissive: color,
+                emissiveIntensity: this.isEvolved ? 2 : 1,
                 transparent: true,
                 opacity: 0.8
             });
@@ -663,7 +726,7 @@ export class OrbitalLaser {
             mesh.position.z = playerPosition.z;
             mesh.rotation.y = this.angle + mesh.userData.baseAngle;
             
-            const pulseIntensity = 0.7 + Math.sin(gameTime * 10 + idx) * 0.3;
+            const pulseIntensity = (this.isEvolved ? 1.5 : 0.7) + Math.sin(gameTime * 10 + idx) * 0.3;
             mesh.material.emissiveIntensity = pulseIntensity;
         });
         
@@ -681,7 +744,7 @@ export class OrbitalLaser {
                     this.particleSystem.emit({
                         position: { x, y: 0.8, z },
                         velocity: { x: 0, y: 2, z: 0 },
-                        color: { r: 1, g: 0, b: 0.4 },
+                        color: this.isEvolved ? { r: 0, g: 1, b: 0.7 } : { r: 1, g: 0, b: 0.4 },
                         count: 1, spread: 0.2, size: 0.4, lifetime: 0.2, gravity: 0
                     });
                 }
@@ -699,16 +762,21 @@ export class OrbitalLaser {
                 
                 toEnemy.normalize();
                 const dot = toEnemy.dot(beamDir);
-                const perpDist = Math.sqrt(1 - dot * dot) * dist;
+                const perpDist = Math.sqrt(Math.max(0, 1 - dot * dot)) * dist;
                 
-                const hitRadius = enemy.userData.isBoss ? 2.5 : 1.2;
-                if (dot > 0 && perpDist < hitRadius + 0.3) {
+                const hitRadius = (enemy.userData.isBoss ? 2.5 : 1.2) * (this.isEvolved ? 1.4 : 1);
+                if (dot > 0 && perpDist < hitRadius + (this.isEvolved ? 0.8 : 0.3)) {
                     if (onHit) onHit(enemy, i, this.damage);
+                    
+                    if (this.isEvolved) {
+                        const pullDir = new THREE.Vector3().subVectors(mesh.position.clone().add(beamDir.clone().multiplyScalar(dist)), enemy.position).normalize();
+                        enemy.position.add(pullDir.multiplyScalar(5 * deltaTime));
+                    }
                     
                     this.particleSystem.emit({
                         position: { x: enemy.position.x, y: 1, z: enemy.position.z },
                         velocity: { x: 0, y: 2, z: 0 },
-                        color: { r: 1, g: 0, b: 0.4 },
+                        color: this.isEvolved ? { r: 0, g: 1, b: 0.7 } : { r: 1, g: 0, b: 0.4 },
                         count: 5, spread: 0.3, size: 0.5, lifetime: 0.2, gravity: 3
                     });
                 }
@@ -719,6 +787,7 @@ export class OrbitalLaser {
     reset() {
         this.level = 0;
         this.angle = 0;
+        this.isEvolved = false;
         this.beamMeshes.forEach(m => {
             this.scene.remove(m);
             m.geometry.dispose();

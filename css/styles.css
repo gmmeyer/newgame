@@ -1078,6 +1078,29 @@ body {
     text-shadow: 0 0 10px #0f0;
 }
 
+.upgrade-card.evolution {
+    border-color: #ffd700;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 100, 0, 0.2));
+    animation: evolvedPulse 2s ease-in-out infinite;
+}
+
+@keyframes evolvedPulse {
+    0%, 100% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
+    50% { box-shadow: 0 0 40px rgba(255, 215, 0, 0.7); }
+}
+
+.upgrade-card.evolution h3 {
+    color: #ffd700;
+    text-shadow: 0 0 10px #ffd700, 0 0 20px #ff8800;
+}
+
+.upgrade-card .level-badge.evolved {
+    background: #ffd700;
+    color: #000;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
 .upgrade-card .level-badge {
     display: inline-block;
     padding: 2px 8px;

@@ -52,6 +52,9 @@ let vignetteController;
 let dynamicMusic;
 let tutorialSystem;
 let mobileControls;
+let traderNPC = null;
+let lastTraderSpawnTime = -999;
+let banishedUpgrades = new Set();
 
 let cameraTargetPosition = new THREE.Vector3();
 let cameraBasePosition = new THREE.Vector3();
@@ -69,12 +72,22 @@ let playerStats = {
     attackRange: 15,
     projectileSpeed: 22,
     projectileCount: 1,
-    killCount: 0
+    killCount: 0,
+    dashCharges: 1,
+    maxDashCharges: 1,
+    dashCooldown: 0,
+    isDashing: false,
+    dashTime: 0,
+    dashDirection: new THREE.Vector3()
 };
 
 let comboCount = 0;
 let comboTimer = 0;
 const COMBO_TIMEOUT = 2;
+
+const DASH_DURATION = 0.2;
+const DASH_COOLDOWN = 3.0;
+const DASH_SPEED_MULTIPLIER = 3.5;
 
 const COMBO_THRESHOLDS = [
     { threshold: 5,  damageBonus: 0.10, speedBonus: 0,    gemBonus: 1.0, heal: 0,  color: '#ffff00', name: 'NICE' },
@@ -108,6 +121,12 @@ let difficultyMultiplier = 1;
 let currentDifficultyTier = 1;
 let lastBossSpawnTime = -90;
 let enemyProjectiles = [];
+
+const miniBossSchedule = [
+    { type: 'miniboss_charger', firstSpawn: 45, interval: 120, warning: 'CHARGER APPROACHES!', lastSpawn: -999 },
+    { type: 'miniboss_summoner', firstSpawn: 135, interval: 150, warning: 'SUMMONER AWAKENS!', lastSpawn: -999 },
+    { type: 'miniboss_splitter_king', firstSpawn: 225, interval: 180, warning: 'SPLITTER KING EMERGES!', lastSpawn: -999 }
+];
 
 const runTimeline = {
     events: [],
@@ -730,13 +749,56 @@ const weaponUpgrades = [
     }
 ];
 
+const evolvedUpgrades = [
+    {
+        id: 'dragonBreath', name: 'Dragon\'s Breath',
+        desc: 'BLUE FIRE! Leaves permanent fire on the ground and massive burn damage.',
+        category: 'evolution', weaponId: 'flamethrower', passiveId: 'armor',
+        apply: () => { weaponSystem.flamethrower.upgrade(); metaSystem.statistics.recordUpgrade('dragonBreath', true, false); }
+    },
+    {
+        id: 'singularityBeam', name: 'Singularity Beam',
+        desc: 'Lasers pull enemies into their path. Massive damage.',
+        category: 'evolution', weaponId: 'orbitalLaser', passiveId: 'magnet',
+        apply: () => { weaponSystem.orbitalLaser.upgrade(); metaSystem.statistics.recordUpgrade('singularityBeam', true, false); }
+    },
+    {
+        id: 'chronosBlade', name: 'Chronos Blade',
+        desc: 'Boomerangs freeze enemies in time for 1 second on hit.',
+        category: 'evolution', weaponId: 'boomerang', passiveId: 'speed',
+        apply: () => { weaponSystem.boomerang.upgrade(); metaSystem.statistics.recordUpgrade('chronosBlade', true, false); }
+    },
+    {
+        id: 'staticField', name: 'Static Field',
+        desc: 'Constant aura of lightning around you. Massive chain count.',
+        category: 'evolution', weaponId: 'chainLightning', passiveId: 'attackSpeed',
+        apply: () => { weaponSystem.chainLightning.upgrade(); metaSystem.statistics.recordUpgrade('staticField', true, false); }
+    },
+    {
+        id: 'novaPrime', name: 'Nova Prime',
+        desc: 'Massive explosion radius and extra shockwaves.',
+        category: 'evolution', weaponId: 'areaNova', passiveId: 'range',
+        apply: () => { weaponSystem.areaNova.upgrade(); metaSystem.statistics.recordUpgrade('novaPrime', true, false); }
+    },
+    {
+        id: 'aegisShield', name: 'Aegis Shield',
+        desc: 'Shields are larger and deal 2.5x damage.',
+        category: 'evolution', weaponId: 'orbitingShields', passiveId: 'damage',
+        apply: () => { weaponSystem.orbitingShields.upgrade(); metaSystem.statistics.recordUpgrade('aegisShield', true, false); }
+    }
+];
+
 function getAvailableUpgrades() {
     const available = [];
     
-    baseUpgrades.forEach(u => available.push({ ...u, currentLevel: 0 }));
+    baseUpgrades.forEach(u => {
+        if (!banishedUpgrades.has(u.id)) {
+            available.push({ ...u, currentLevel: 0 });
+        }
+    });
     
     weaponUpgrades.forEach(u => {
-        if (playerStats.level >= (u.unlockLevel || 1)) {
+        if (!banishedUpgrades.has(u.id) && playerStats.level >= (u.unlockLevel || 1)) {
             const weapon = weaponSystem[u.id];
             const level = weapon ? weapon.level : 0;
             if (level < u.maxLevel) {
@@ -746,7 +808,7 @@ function getAvailableUpgrades() {
     });
     
     passiveUpgrades.forEach(u => {
-        if (playerStats.level >= (u.unlockLevel || 1)) {
+        if (!banishedUpgrades.has(u.id) && playerStats.level >= (u.unlockLevel || 1)) {
             const passive = passiveSystem[u.id];
             const level = passive ? passive.level : 0;
             if (level < u.maxLevel) {
@@ -760,6 +822,14 @@ function getAvailableUpgrades() {
                     }
                 });
             }
+        }
+    });
+
+    evolvedUpgrades.forEach(u => {
+        const weapon = weaponSystem[u.weaponId];
+        const passive = passiveSystem[u.passiveId];
+        if (weapon && weapon.level >= 5 && !weapon.isEvolved && passive && passive.level >= 5) {
+            available.push({ ...u, currentLevel: 5 });
         }
     });
     
@@ -881,6 +951,8 @@ export function init() {
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             handleEscapeKey();
+        } else if (e.key === ' ' && currentState === GameState.PLAYING) {
+            handleDash();
         } else {
             keys[e.key.toLowerCase()] = true;
         }
@@ -894,6 +966,9 @@ export function init() {
     document.getElementById('quit-btn').addEventListener('click', quitToMenu);
     document.getElementById('settings-back-btn').addEventListener('click', hideSettings);
     
+    const traderCloseBtn = document.getElementById('trader-close-btn');
+    if (traderCloseBtn) traderCloseBtn.addEventListener('click', closeTrader);
+
     const metaShopBtn = document.getElementById('meta-shop-btn');
     const metaShopBackBtn = document.getElementById('meta-shop-back-btn');
     if (metaShopBtn) metaShopBtn.addEventListener('click', openMetaShop);
@@ -1359,19 +1434,12 @@ function spawnEnemies(deltaTime) {
         screenShake.addTrauma(0.5);
     }
     
-    const miniBossSchedule = [
-        { type: 'miniboss_charger', firstSpawn: 45, interval: 120, warning: 'CHARGER APPROACHES!' },
-        { type: 'miniboss_summoner', firstSpawn: 135, interval: 150, warning: 'SUMMONER AWAKENS!' },
-        { type: 'miniboss_splitter_king', firstSpawn: 225, interval: 180, warning: 'SPLITTER KING EMERGES!' }
-    ];
-    
     miniBossSchedule.forEach(mb => {
         if (gameTime >= mb.firstSpawn) {
             const timeSinceFirst = gameTime - mb.firstSpawn;
             const spawnNumber = Math.floor(timeSinceFirst / mb.interval);
             const expectedSpawnTime = mb.firstSpawn + spawnNumber * mb.interval;
             
-            if (!mb.lastSpawn) mb.lastSpawn = -999;
             if (gameTime >= expectedSpawnTime && mb.lastSpawn < expectedSpawnTime) {
                 mb.lastSpawn = expectedSpawnTime;
                 const angle = Math.random() * Math.PI * 2;
@@ -1385,6 +1453,11 @@ function spawnEnemies(deltaTime) {
             }
         }
     });
+
+    if ((Math.floor(gameTime) === 300 || Math.floor(gameTime) === 600) && gameTime - lastTraderSpawnTime > 60) {
+        lastTraderSpawnTime = gameTime;
+        spawnTrader();
+    }
 
     if (lastSpawnTime >= spawnInterval) {
         lastSpawnTime = 0;
@@ -1436,19 +1509,70 @@ function attack(deltaTime) {
     }
 }
 
+function handleDash() {
+    if (playerStats.isDashing || playerStats.dashCharges <= 0) return;
+    
+    playerStats.isDashing = true;
+    playerStats.dashTime = DASH_DURATION;
+    playerStats.dashCharges--;
+    playerStats.dashDirection.copy(playerDirection).normalize();
+    
+    audio.playDash();
+    screenShake.addTrauma(0.2);
+    
+    particleSystem.emit({
+        position: { x: player.position.x, y: 1, z: player.position.z },
+        velocity: { x: -playerStats.dashDirection.x * 5, y: 2, z: -playerStats.dashDirection.z * 5 },
+        color: { r: 0, g: 1, b: 1 },
+        count: 20, spread: 0.5, size: 1.2, lifetime: 0.4, gravity: 0
+    });
+}
+
 function updatePlayer(deltaTime) {
     const isFrozen = playerStats.frozenUntil && gameTime < playerStats.frozenUntil;
     
+    // Update Dash Cooldown
+    if (playerStats.dashCharges < playerStats.maxDashCharges) {
+        playerStats.dashCooldown -= deltaTime;
+        if (playerStats.dashCooldown <= 0) {
+            playerStats.dashCharges++;
+            if (playerStats.dashCharges < playerStats.maxDashCharges) {
+                playerStats.dashCooldown = DASH_COOLDOWN;
+            }
+        }
+    } else {
+        playerStats.dashCooldown = DASH_COOLDOWN;
+    }
+
     const velocity = new THREE.Vector3();
 
-    if (!isFrozen) {
+    if (playerStats.isDashing) {
+        playerStats.dashTime -= deltaTime;
+        if (playerStats.dashTime <= 0) {
+            playerStats.isDashing = false;
+        }
+        
+        const dashSpeed = playerStats.speed * DASH_SPEED_MULTIPLIER;
+        velocity.copy(playerStats.dashDirection).multiplyScalar(dashSpeed * deltaTime);
+        player.position.add(velocity);
+        
+        // Dash trail
+        if (Math.random() < 0.5) {
+            particleSystem.emit({
+                position: { x: player.position.x, y: 1, z: player.position.z },
+                velocity: { x: 0, y: 1, z: 0 },
+                color: { r: 0, g: 0.8, b: 1 },
+                count: 5, spread: 0.3, size: 0.8, lifetime: 0.2, gravity: 0
+            });
+        }
+    } else if (!isFrozen) {
         if (keys['w']) velocity.z -= 1;
         if (keys['s']) velocity.z += 1;
         if (keys['a']) velocity.x -= 1;
         if (keys['d']) velocity.x += 1;
     }
 
-    if (velocity.length() > 0) {
+    if (!playerStats.isDashing && velocity.length() > 0) {
         velocity.normalize();
         playerDirection.copy(velocity);
         const speed = playerStats.speed * powerupSystem.getSpeedMultiplier() * getComboBonus().speedMultiplier;
@@ -1496,11 +1620,79 @@ function updateCamera(deltaTime) {
     camera.lookAt(player.position.x, 0, player.position.z);
 }
 
+function spawnTrader() {
+    if (traderNPC) scene.remove(traderNPC);
+    
+    const group = new THREE.Group();
+    const geo = new THREE.CylinderGeometry(0.8, 1, 2, 8);
+    const mat = new THREE.MeshStandardMaterial({
+        color: 0x00ff00,
+        emissive: 0x00ff00,
+        emissiveIntensity: 0.5,
+        wireframe: true
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.y = 1;
+    group.add(mesh);
+    
+    const ringGeo = new THREE.TorusKnotGeometry(1.2, 0.2, 64, 8);
+    const ringMat = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00 });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 1;
+    group.add(ring);
+    
+    const light = new THREE.PointLight(0x00ff00, 3, 10);
+    light.position.y = 2;
+    group.add(light);
+    
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 25;
+    group.position.set(
+        player.position.x + Math.cos(angle) * dist,
+        0,
+        player.position.z + Math.sin(angle) * dist
+    );
+    
+    traderNPC = group;
+    scene.add(traderNPC);
+    showWaveWarning('GLITCH TRADER HAS APPEARED!');
+}
+
 function updateEnemies(deltaTime) {
     for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
         const data = enemy.userData;
         const distToPlayer = player.position.distanceTo(enemy.position);
+
+        if (data.isBoss) {
+            const hpPercent = data.health / data.maxHealth;
+            
+            if (hpPercent < 0.75 && !data.isRaged) {
+                data.isRaged = true;
+                data.speed *= 1.5;
+                enemy.children[0].material.color.setHex(0xff0000);
+                enemy.children[0].scale.multiplyScalar(1.2);
+                audio.playBossWarning();
+            }
+            
+            if (hpPercent < 0.5 && gameTime - (data.lastSpecialTime || 0) > 10) {
+                data.lastSpecialTime = gameTime;
+                
+                if (data.type === 'miniboss_splitter_king') {
+                    for (let j = 0; j < 8; j++) {
+                        const angle = (j / 8) * Math.PI * 2;
+                        createEnemy(enemy.position.x + Math.cos(angle) * 5, enemy.position.z + Math.sin(angle) * 5, 'exploder');
+                    }
+                } else if (data.type === 'miniboss_summoner') {
+                    for (let j = 0; j < 5; j++) {
+                        createEnemy(player.position.x + (Math.random() - 0.5) * 20, player.position.z + (Math.random() - 0.5) * 20, 'fast');
+                    }
+                } else if (data.type === 'boss') {
+                    hazardSystem.spawnLavaPool(player.position.clone(), 8, 40, 5);
+                }
+            }
+        }
 
         if (data.phaseInterval) {
             if (gameTime - data.lastPhaseTime >= data.phaseInterval) {
@@ -1687,7 +1879,7 @@ function updateEnemies(deltaTime) {
             if (gameTime - data.lastDamageTime > 0.5) {
                 data.lastDamageTime = gameTime;
                 
-                if (powerupSystem.isInvincible()) {
+                if (powerupSystem.isInvincible() || playerStats.isDashing) {
                     particleSystem.emit({
                         position: { x: player.position.x, y: 1, z: player.position.z },
                         velocity: { x: 0, y: 3, z: 0 },
@@ -2110,17 +2302,23 @@ function showLevelUpScreen() {
     options.innerHTML = '';
 
     const available = getAvailableUpgrades();
-    const shuffled = available.sort(() => Math.random() - 0.5);
-    const choices = shuffled.slice(0, 4);
+    
+    const evolvedOnes = available.filter(u => u.category === 'evolution');
+    const others = available.filter(u => u.category !== 'evolution');
+    
+    const shuffledOthers = others.sort(() => Math.random() - 0.5);
+    const choices = [...evolvedOnes, ...shuffledOthers].slice(0, 4);
 
     choices.forEach(upgrade => {
         const card = document.createElement('div');
-        const categoryClass = upgrade.category === 'weapon' ? 'weapon' : (upgrade.category === 'passive' ? 'passive' : '');
+        const categoryClass = upgrade.category === 'weapon' ? 'weapon' : (upgrade.category === 'passive' ? 'passive' : (upgrade.category === 'evolution' ? 'evolution' : ''));
         card.className = `upgrade-card ${categoryClass}`;
         
         let levelBadge = '';
         if (upgrade.currentLevel !== undefined && upgrade.maxLevel) {
             levelBadge = `<span class="level-badge">Lv ${upgrade.currentLevel} → ${upgrade.currentLevel + 1}</span>`;
+        } else if (upgrade.category === 'evolution') {
+            levelBadge = `<span class="level-badge evolved">PRIMAL</span>`;
         }
         
         const iconSrc = getUpgradeIcon(upgrade.id);
@@ -2146,6 +2344,68 @@ function showLevelUpScreen() {
 function hideLevelUpScreen() {
     document.getElementById('level-up-screen').style.display = 'none';
     currentState = GameState.PLAYING;
+}
+
+function openTrader() {
+    if (currentState !== GameState.PLAYING) return;
+    currentState = GameState.PAUSED;
+    document.getElementById('trader-screen').style.display = 'flex';
+    renderTraderOptions();
+}
+
+function closeTrader() {
+    document.getElementById('trader-screen').style.display = 'none';
+    currentState = GameState.PLAYING;
+    if (traderNPC) {
+        scene.remove(traderNPC);
+        traderNPC = null;
+    }
+}
+
+function renderTraderOptions() {
+    const container = document.getElementById('trader-options');
+    container.innerHTML = '';
+    
+    const options = [
+        { name: 'Gems to Souls', desc: 'Convert 100 Gems to 25 Souls permanently.', cost: 100, apply: () => {
+            playerStats.exp -= 100;
+            metaSystem.metaUpgrades.addSouls(25);
+        }},
+        { name: 'Rage Injector', desc: 'Double damage for 60 seconds.', cost: 50, apply: () => {
+            playerStats.exp -= 50;
+            powerupSystem.activateDamageBoost(60);
+        }},
+        { name: 'Banishment', desc: 'Banish a random common upgrade from the pool.', cost: 75, apply: () => {
+            playerStats.exp -= 75;
+            const pool = [...baseUpgrades, ...weaponUpgrades, ...passiveUpgrades];
+            const target = pool[Math.floor(Math.random() * pool.length)];
+            banishedUpgrades.add(target.id);
+            showWaveWarning(`BANISHED: ${target.name}`);
+        }}
+    ];
+    
+    options.forEach(opt => {
+        const card = document.createElement('div');
+        card.className = 'upgrade-card';
+        card.style.borderColor = '#0f0';
+        card.innerHTML = `
+            <h3 style="color: #0f0;">${opt.name}</h3>
+            <p>${opt.desc}</p>
+            <div style="margin-top: 10px; color: #ff0;">Cost: ${opt.cost} Gems</div>
+        `;
+        
+        if (playerStats.exp >= opt.cost) {
+            card.addEventListener('click', () => {
+                opt.apply();
+                audio.playGemPickup();
+                closeTrader();
+            });
+        } else {
+            card.style.opacity = '0.5';
+        }
+        
+        container.appendChild(card);
+    });
 }
 
 function updateHUD() {
@@ -2329,6 +2589,11 @@ function startGame() {
                     weaponSystem[weaponId].upgrade();
                 }
             });
+        }
+        
+        if (character.id === 'dasher') {
+            playerStats.maxDashCharges = 3;
+            playerStats.dashCharges = 3;
         }
         
         if (player.children[0] && player.children[0].material) {
@@ -2535,8 +2800,15 @@ function restartGame() {
     playerStats = {
         health: baseHealth, maxHealth: baseHealth, speed: baseSpeed, exp: 0, expToLevel: 10,
         level: 1, damage: baseDamage, attackSpeed: baseAttackSpeed, attackRange: 15,
-        projectileSpeed: 22, projectileCount: 1, killCount: 0
+        projectileSpeed: 22, projectileCount: 1, killCount: 0,
+        dashCharges: 1, maxDashCharges: 1, dashCooldown: 0, isDashing: false, dashTime: 0,
+        dashDirection: new THREE.Vector3()
     };
+    
+    if (character && character.id === 'dasher') {
+        playerStats.maxDashCharges = 3;
+        playerStats.dashCharges = 3;
+    }
     
     if (character && player.children[0] && player.children[0].material) {
         player.children[0].material.color.setHex(character.color);
@@ -2558,6 +2830,13 @@ function restartGame() {
     enemyProjectiles = [];
     gems = [];
 
+    if (traderNPC) {
+        scene.remove(traderNPC);
+        traderNPC = null;
+    }
+    lastTraderSpawnTime = -999;
+    banishedUpgrades.clear();
+    
     player.position.set(0, 0, 0);
 
     gameTime = 0;
@@ -2566,6 +2845,7 @@ function restartGame() {
     difficultyMultiplier = 1;
     currentDifficultyTier = 1;
     lastBossSpawnTime = -90;
+    miniBossSchedule.forEach(mb => mb.lastSpawn = -999);
     comboCount = 0;
     comboTimer = 0;
 
@@ -2637,6 +2917,13 @@ function animate() {
         powerupSystem.update(deltaTime, gameTime, player.position);
         hazardSystem.update(deltaTime, gameTime, player.position, playerStats, enemies);
         
+        if (traderNPC) {
+            traderNPC.children[1].rotation.z += deltaTime * 2;
+            if (player.position.distanceTo(traderNPC.position) < 3) {
+                openTrader();
+            }
+        }
+
         enemies.forEach(enemy => healthBars.ensureHealthBar(enemy));
         healthBars.update(camera, enemies);
         minimap.update(player.position, enemies, gems);

@@ -82,6 +82,27 @@ export class RetroAudio {
         osc.stop(now + 0.1);
     }
 
+    playDash() {
+        if (!this.initialized) return;
+        const now = this.ctx.currentTime;
+        
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(100, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+        
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(now);
+        osc.stop(now + 0.15);
+    }
+
     playEnemyDeath(isBoss = false) {
         if (!this.initialized) return;
         const now = this.ctx.currentTime;
