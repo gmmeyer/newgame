@@ -25,7 +25,7 @@ const GameState = {
 
 let currentState = GameState.MENU;
 let scene, camera, renderer, composer;
-let player, ground;
+let player;
 let enemies = [];
 let projectiles = [];
 let gems = [];
@@ -56,10 +56,10 @@ let playerStats = {
     exp: 0,
     expToLevel: 10,
     level: 1,
-    damage: 25,
+    damage: 30,
     attackSpeed: 1,
     attackRange: 15,
-    projectileSpeed: 20,
+    projectileSpeed: 22,
     projectileCount: 1,
     killCount: 0
 };
@@ -74,20 +74,321 @@ let spawnInterval = 2;
 let lastSpawnTime = 0;
 let difficultyMultiplier = 1;
 let currentDifficultyTier = 1;
-let lastBossSpawnTime = -60;
+let lastBossSpawnTime = -90;
 let enemyProjectiles = [];
 
 const keys = {};
 
+const AssetCache = {
+    geometries: {},
+    materials: {},
+    
+    getEnemyGeometry(typeName, type) {
+        if (!this.geometries[typeName]) {
+            this.geometries[typeName] = type.geometry();
+        }
+        return this.geometries[typeName];
+    },
+    
+    getEnemyMaterial(typeName, type) {
+        if (!this.materials[typeName]) {
+            const enemyTexture = getTexture('enemy_' + typeName);
+            this.materials[typeName] = new THREE.MeshStandardMaterial({
+                map: enemyTexture,
+                color: type.color,
+                emissive: type.emissive,
+                emissiveIntensity: type.isElite ? 1.2 : (type.isBoss ? 1.5 : 0.8),
+                emissiveMap: enemyTexture,
+                transparent: type.transparent || false,
+                opacity: type.transparent ? 0.7 : 1,
+                roughness: 0.3,
+                metalness: 0.5
+            });
+        }
+        return this.materials[typeName];
+    },
+    
+    eliteRingGeometry: null,
+    bossRingGeometry: null,
+    eliteRingMaterial: null,
+    bossRingMaterial: null,
+    
+    getEliteRing(scale, isBoss) {
+        if (isBoss) {
+            if (!this.bossRingGeometry) {
+                this.bossRingGeometry = new THREE.RingGeometry(0.8, 1.0, 16);
+                this.bossRingMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xff0000, transparent: true, opacity: 0.8, side: THREE.DoubleSide
+                });
+            }
+            return { geo: this.bossRingGeometry, mat: this.bossRingMaterial };
+        } else {
+            if (!this.eliteRingGeometry) {
+                this.eliteRingGeometry = new THREE.RingGeometry(0.8, 1.0, 16);
+                this.eliteRingMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xffff00, transparent: true, opacity: 0.8, side: THREE.DoubleSide
+                });
+            }
+            return { geo: this.eliteRingGeometry, mat: this.eliteRingMaterial };
+        }
+    }
+};
+
+const ProjectilePool = {
+    playerPool: [],
+    enemyPool: [],
+    playerGeometry: null,
+    playerMaterial: null,
+    enemyGeometry: null,
+    enemyMaterial: null,
+    
+    init() {
+        this.playerGeometry = new THREE.SphereGeometry(0.25, 6, 6);
+        this.playerMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        this.enemyGeometry = new THREE.SphereGeometry(0.2, 6, 6);
+        this.enemyMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.9 });
+    },
+    
+    getPlayerProjectile() {
+        let proj = this.playerPool.pop();
+        if (!proj) {
+            proj = new THREE.Mesh(this.playerGeometry, this.playerMaterial);
+        }
+        proj.visible = true;
+        return proj;
+    },
+    
+    returnPlayerProjectile(proj) {
+        proj.visible = false;
+        this.playerPool.push(proj);
+    },
+    
+    getEnemyProjectile() {
+        let proj = this.enemyPool.pop();
+        if (!proj) {
+            proj = new THREE.Mesh(this.enemyGeometry, this.enemyMaterial);
+        }
+        proj.visible = true;
+        return proj;
+    },
+    
+    returnEnemyProjectile(proj) {
+        proj.visible = false;
+        this.enemyPool.push(proj);
+    }
+};
+
+const GemPool = {
+    pool: [],
+    geometry: null,
+    material: null,
+    
+    init() {
+        this.geometry = new THREE.OctahedronGeometry(0.3, 0);
+        this.material = new THREE.MeshStandardMaterial({
+            color: 0x00ff88,
+            emissive: 0x00ff88,
+            emissiveIntensity: 0.8,
+            transparent: true,
+            opacity: 0.9,
+            roughness: 0.2,
+            metalness: 0.8
+        });
+    },
+    
+    get() {
+        let gem = this.pool.pop();
+        if (!gem) {
+            gem = new THREE.Mesh(this.geometry, this.material);
+        }
+        gem.visible = true;
+        return gem;
+    },
+    
+    return(gem) {
+        gem.visible = false;
+        this.pool.push(gem);
+    }
+};
+
+const WorldSystem = {
+    tiles: [],
+    props: [],
+    tileSize: 100,
+    currentChunkX: 0,
+    currentChunkZ: 0,
+    groundGeometry: null,
+    groundMaterial: null,
+    propGeometries: {},
+    propMaterials: {},
+    
+    init(scene, getTexture) {
+        this.scene = scene;
+        
+        this.groundGeometry = new THREE.PlaneGeometry(this.tileSize, this.tileSize);
+        this.groundMaterial = new THREE.MeshStandardMaterial({
+            map: getTexture('ground'),
+            roughness: 0.7,
+            metalness: 0.2,
+            emissive: 0x004455,
+            emissiveIntensity: 0.8
+        });
+        
+        this.propGeometries = {
+            pillar: new THREE.CylinderGeometry(0.8, 1.2, 6, 8),
+            spire: new THREE.ConeGeometry(1.5, 8, 6),
+            rock: new THREE.DodecahedronGeometry(1.5, 0),
+            crystal: new THREE.OctahedronGeometry(1.2, 0)
+        };
+        
+        this.propMaterials = {
+            pillar: new THREE.MeshStandardMaterial({ color: 0x334455, roughness: 0.9, metalness: 0.1, emissive: 0x112233, emissiveIntensity: 0.3 }),
+            spire: new THREE.MeshStandardMaterial({ color: 0x223344, roughness: 0.8, metalness: 0.2, emissive: 0x001122, emissiveIntensity: 0.2 }),
+            rock: new THREE.MeshStandardMaterial({ color: 0x445566, roughness: 1.0, metalness: 0.0, emissive: 0x112244, emissiveIntensity: 0.2 }),
+            crystal: new THREE.MeshStandardMaterial({ color: 0x66ffff, roughness: 0.2, metalness: 0.8, emissive: 0x00ffff, emissiveIntensity: 0.5, transparent: true, opacity: 0.7 })
+        };
+        
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dz = -1; dz <= 1; dz++) {
+                this.createTile(dx, dz);
+            }
+        }
+    },
+    
+    createTile(chunkX, chunkZ) {
+        const tile = new THREE.Mesh(this.groundGeometry, this.groundMaterial);
+        tile.rotation.x = -Math.PI / 2;
+        tile.position.set(chunkX * this.tileSize, 0, chunkZ * this.tileSize);
+        tile.receiveShadow = true;
+        tile.userData = { chunkX, chunkZ };
+        this.scene.add(tile);
+        this.tiles.push(tile);
+        
+        this.generatePropsForTile(chunkX, chunkZ);
+    },
+    
+    generatePropsForTile(chunkX, chunkZ) {
+        const seed = chunkX * 1000 + chunkZ;
+        const random = this.seededRandom(seed);
+        
+        const propCount = 3 + Math.floor(random() * 5);
+        const centerX = chunkX * this.tileSize;
+        const centerZ = chunkZ * this.tileSize;
+        
+        for (let i = 0; i < propCount; i++) {
+            const propTypes = ['pillar', 'spire', 'rock', 'crystal'];
+            const weights = [0.35, 0.25, 0.3, 0.1];
+            let r = random();
+            let typeIndex = 0;
+            for (let j = 0; j < weights.length; j++) {
+                r -= weights[j];
+                if (r <= 0) { typeIndex = j; break; }
+            }
+            const propType = propTypes[typeIndex];
+            
+            const x = centerX + (random() - 0.5) * (this.tileSize - 10);
+            const z = centerZ + (random() - 0.5) * (this.tileSize - 10);
+            
+            if (Math.abs(x) < 8 && Math.abs(z) < 8) continue;
+            
+            const prop = new THREE.Mesh(this.propGeometries[propType], this.propMaterials[propType]);
+            const scale = 0.6 + random() * 0.8;
+            prop.scale.set(scale, scale, scale);
+            prop.position.set(x, prop.geometry.parameters.height ? prop.geometry.parameters.height * scale / 2 : scale * 1.5, z);
+            prop.rotation.y = random() * Math.PI * 2;
+            prop.castShadow = true;
+            prop.userData = { chunkX, chunkZ, propType };
+            this.scene.add(prop);
+            this.props.push(prop);
+        }
+    },
+    
+    seededRandom(seed) {
+        let s = seed;
+        return function() {
+            s = (s * 9301 + 49297) % 233280;
+            return s / 233280;
+        };
+    },
+    
+    update(playerPos) {
+        const newChunkX = Math.floor(playerPos.x / this.tileSize + 0.5);
+        const newChunkZ = Math.floor(playerPos.z / this.tileSize + 0.5);
+        
+        if (newChunkX !== this.currentChunkX || newChunkZ !== this.currentChunkZ) {
+            this.shiftTiles(newChunkX, newChunkZ);
+            this.currentChunkX = newChunkX;
+            this.currentChunkZ = newChunkZ;
+        }
+    },
+    
+    shiftTiles(newChunkX, newChunkZ) {
+        const tilesToRemove = [];
+        const chunksNeeded = new Set();
+        
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dz = -1; dz <= 1; dz++) {
+                chunksNeeded.add(`${newChunkX + dx},${newChunkZ + dz}`);
+            }
+        }
+        
+        const existingChunks = new Set();
+        this.tiles.forEach(tile => {
+            const key = `${tile.userData.chunkX},${tile.userData.chunkZ}`;
+            if (!chunksNeeded.has(key)) {
+                tilesToRemove.push(tile);
+            } else {
+                existingChunks.add(key);
+            }
+        });
+        
+        tilesToRemove.forEach(tile => {
+            this.scene.remove(tile);
+            this.tiles.splice(this.tiles.indexOf(tile), 1);
+            
+            const propsToRemove = this.props.filter(p => 
+                p.userData.chunkX === tile.userData.chunkX && 
+                p.userData.chunkZ === tile.userData.chunkZ
+            );
+            propsToRemove.forEach(prop => {
+                this.scene.remove(prop);
+                this.props.splice(this.props.indexOf(prop), 1);
+            });
+        });
+        
+        chunksNeeded.forEach(key => {
+            if (!existingChunks.has(key)) {
+                const [cx, cz] = key.split(',').map(Number);
+                this.createTile(cx, cz);
+            }
+        });
+    },
+    
+    reset() {
+        this.tiles.forEach(tile => this.scene.remove(tile));
+        this.props.forEach(prop => this.scene.remove(prop));
+        this.tiles = [];
+        this.props = [];
+        this.currentChunkX = 0;
+        this.currentChunkZ = 0;
+        
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dz = -1; dz <= 1; dz++) {
+                this.createTile(dx, dz);
+            }
+        }
+    }
+};
+
 const difficultyTiers = [
     { time: 0, name: 'I', enemies: ['basic', 'fast'] },
-    { time: 30, name: 'II', enemies: ['basic', 'fast', 'tank'] },
-    { time: 60, name: 'III', enemies: ['basic', 'fast', 'tank', 'exploder'] },
-    { time: 90, name: 'IV', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter'] },
-    { time: 120, name: 'V', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter', 'shooter'] },
-    { time: 180, name: 'VI', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter', 'shooter', 'ghost'] },
-    { time: 240, name: 'VII', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter', 'shooter', 'ghost', 'teleporter'] },
-    { time: 300, name: 'VIII', enemies: ['elite_basic', 'elite_fast', 'tank', 'exploder', 'splitter', 'shooter', 'ghost', 'teleporter'] }
+    { time: 90, name: 'II', enemies: ['basic', 'fast', 'tank'] },
+    { time: 180, name: 'III', enemies: ['basic', 'fast', 'tank', 'exploder'] },
+    { time: 270, name: 'IV', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter'] },
+    { time: 360, name: 'V', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter', 'shooter'] },
+    { time: 480, name: 'VI', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter', 'shooter', 'ghost'] },
+    { time: 600, name: 'VII', enemies: ['basic', 'fast', 'tank', 'exploder', 'splitter', 'shooter', 'ghost', 'teleporter'] },
+    { time: 720, name: 'VIII', enemies: ['elite_basic', 'elite_fast', 'tank', 'exploder', 'splitter', 'shooter', 'ghost', 'teleporter'] }
 ];
 
 const enemyTypes = {
@@ -335,23 +636,15 @@ export function init() {
     directionalLight.shadow.camera.bottom = -50;
     scene.add(directionalLight);
 
-    const groundGeometry = new THREE.PlaneGeometry(100, 100);
-    const groundMaterial = new THREE.MeshStandardMaterial({
-        map: getTexture('ground'),
-        roughness: 0.7,
-        metalness: 0.2,
-        emissive: 0x004455,
-        emissiveIntensity: 0.8
-    });
-    ground = new THREE.Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    scene.add(ground);
+    WorldSystem.init(scene, getTexture);
 
     createPlayer();
 
     particleSystem = new ParticleSystem(5000);
     scene.add(particleSystem.points);
+    
+    ProjectilePool.init();
+    GemPool.init();
     
     screenShake = new ScreenShake();
     timeController = new TimeController();
@@ -551,19 +844,8 @@ function createEnemy(x, z, forcedType = null) {
     const typeName = forcedType || selectEnemyType();
     const type = enemyTypes[typeName];
 
-    const geometry = type.geometry();
-    const enemyTexture = getTexture('enemy_' + typeName);
-    const material = new THREE.MeshStandardMaterial({
-        map: enemyTexture,
-        color: type.color,
-        emissive: type.emissive,
-        emissiveIntensity: type.isElite ? 1.2 : (type.isBoss ? 1.5 : 0.8),
-        emissiveMap: enemyTexture,
-        transparent: type.transparent || false,
-        opacity: type.transparent ? 0.7 : 1,
-        roughness: 0.3,
-        metalness: 0.5
-    });
+    const geometry = AssetCache.getEnemyGeometry(typeName, type);
+    const material = AssetCache.getEnemyMaterial(typeName, type);
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.y = 0.5 * type.scale;
@@ -572,16 +854,11 @@ function createEnemy(x, z, forcedType = null) {
     enemyGroup.add(mesh);
 
     if (type.isElite || type.isBoss) {
-        const ringGeometry = new THREE.RingGeometry(type.scale * 0.8, type.scale * 1.0, 32);
-        const ringMaterial = new THREE.MeshBasicMaterial({
-            color: type.isBoss ? 0xff0000 : 0xffff00,
-            transparent: true,
-            opacity: 0.8,
-            side: THREE.DoubleSide
-        });
-        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        const ringAssets = AssetCache.getEliteRing(type.scale, type.isBoss);
+        const ring = new THREE.Mesh(ringAssets.geo, ringAssets.mat);
         ring.rotation.x = -Math.PI / 2;
         ring.position.y = 0.05;
+        ring.scale.set(type.scale, type.scale, 1);
         enemyGroup.add(ring);
         
         if (type.isBoss) {
@@ -681,9 +958,7 @@ function createExplosion(x, z, radius, damage) {
 }
 
 function createEnemyProjectile(fromPos, toPos, damage) {
-    const geometry = new THREE.SphereGeometry(0.2, 8, 8);
-    const material = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.9 });
-    const projectile = new THREE.Mesh(geometry, material);
+    const projectile = ProjectilePool.getEnemyProjectile();
     projectile.position.copy(fromPos);
     projectile.position.y = 1;
 
@@ -693,14 +968,12 @@ function createEnemyProjectile(fromPos, toPos, damage) {
 
     projectile.userData = { velocity: direction.multiplyScalar(12), damage, lifetime: 3 };
 
-    scene.add(projectile);
+    if (!projectile.parent) scene.add(projectile);
     enemyProjectiles.push(projectile);
 }
 
 function createProjectile(direction, offset = 0) {
-    const geometry = new THREE.SphereGeometry(0.25, 8, 8);
-    const material = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 1 });
-    const projectile = new THREE.Mesh(geometry, material);
+    const projectile = ProjectilePool.getPlayerProjectile();
 
     const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
     const offsetPosition = perpendicular.multiplyScalar(offset * 0.5);
@@ -716,35 +989,25 @@ function createProjectile(direction, offset = 0) {
         lastTrailTime: 0
     };
 
-    scene.add(projectile);
+    if (!projectile.parent) scene.add(projectile);
     projectiles.push(projectile);
     
     particleSystem.emit({
         position: { x: player.position.x, y: 1, z: player.position.z },
         velocity: { x: direction.x * 5, y: 2, z: direction.z * 5 },
         color: { r: 1, g: 1, b: 0.5 },
-        count: 5, spread: 0.2, size: 0.8, lifetime: 0.15, gravity: 0
+        count: 3, spread: 0.2, size: 0.6, lifetime: 0.1, gravity: 0
     });
     
     audio.playShoot();
 }
 
 function createGem(x, z, value = 1) {
-    const geometry = new THREE.OctahedronGeometry(0.3, 0);
-    const material = new THREE.MeshStandardMaterial({
-        color: 0x00ff88,
-        emissive: 0x00ff88,
-        emissiveIntensity: 0.8,
-        transparent: true,
-        opacity: 0.9,
-        roughness: 0.2,
-        metalness: 0.8
-    });
-    const gem = new THREE.Mesh(geometry, material);
+    const gem = GemPool.get();
     gem.position.set(x, 0.5, z);
     gem.userData = { value, spawnTime: gameTime };
 
-    scene.add(gem);
+    if (!gem.parent) scene.add(gem);
     gems.push(gem);
 }
 
@@ -767,8 +1030,8 @@ function showWaveWarning(message) {
 function spawnEnemies(deltaTime) {
     lastSpawnTime += deltaTime;
 
-    difficultyMultiplier = 1 + (gameTime / 60) * 0.5;
-    spawnInterval = Math.max(0.3, 2 - (gameTime / 60) * 0.3);
+    difficultyMultiplier = 1 + (gameTime / 60) * 0.25;
+    spawnInterval = Math.max(0.5, 2 - (gameTime / 60) * 0.15);
 
     const newTier = getCurrentTier();
     const tierIndex = difficultyTiers.indexOf(newTier) + 1;
@@ -778,7 +1041,7 @@ function spawnEnemies(deltaTime) {
         audio.playBossWarning();
     }
 
-    if (gameTime >= 60 && gameTime - lastBossSpawnTime >= 60) {
+    if (gameTime >= 120 && gameTime - lastBossSpawnTime >= 90) {
         lastBossSpawnTime = gameTime;
         const angle = Math.random() * Math.PI * 2;
         const distance = 35;
@@ -853,9 +1116,6 @@ function updatePlayer(deltaTime) {
         const speed = playerStats.speed * powerupSystem.getSpeedMultiplier();
         velocity.multiplyScalar(speed * deltaTime);
         player.position.add(velocity);
-
-        player.position.x = Math.max(-45, Math.min(45, player.position.x));
-        player.position.z = Math.max(-45, Math.min(45, player.position.z));
         
         if (Math.random() < 0.3) {
             particleSystem.emit({
@@ -866,6 +1126,8 @@ function updatePlayer(deltaTime) {
             });
         }
     }
+    
+    WorldSystem.update(player.position);
 
     player.children[2].rotation.z += deltaTime * 2;
     player.children[3].rotation.z -= deltaTime * 1.5;
@@ -1050,13 +1312,13 @@ function updateEnemyProjectiles(deltaTime) {
                 if (playerStats.health <= 0) gameOver();
             }
             
-            scene.remove(projectile);
+            ProjectilePool.returnEnemyProjectile(projectile);
             enemyProjectiles.splice(i, 1);
             continue;
         }
 
         if (projectile.userData.lifetime <= 0) {
-            scene.remove(projectile);
+            ProjectilePool.returnEnemyProjectile(projectile);
             enemyProjectiles.splice(i, 1);
         }
     }
@@ -1186,7 +1448,7 @@ function updateProjectiles(deltaTime) {
         }
 
         if (hit || projectile.userData.lifetime <= 0) {
-            scene.remove(projectile);
+            ProjectilePool.returnPlayerProjectile(projectile);
             projectiles.splice(i, 1);
         }
     }
@@ -1233,7 +1495,7 @@ function updateGems(deltaTime) {
             
             audio.playGemPickup();
             
-            scene.remove(gem);
+            GemPool.return(gem);
             gems.splice(i, 1);
 
             if (playerStats.exp >= playerStats.expToLevel) levelUp();
@@ -1464,13 +1726,13 @@ function restartGame() {
     const character = metaSystem.unlocks.getCharacter(selectedCharacterId);
     const baseHealth = character ? character.stats.health : 100;
     const baseSpeed = character ? character.stats.speed : 8;
-    const baseDamage = character ? character.stats.damage : 25;
+    const baseDamage = character ? character.stats.damage : 30;
     const baseAttackSpeed = character ? character.stats.attackSpeed : 1;
     
     playerStats = {
         health: baseHealth, maxHealth: baseHealth, speed: baseSpeed, exp: 0, expToLevel: 10,
         level: 1, damage: baseDamage, attackSpeed: baseAttackSpeed, attackRange: 15,
-        projectileSpeed: 20, projectileCount: 1, killCount: 0
+        projectileSpeed: 22, projectileCount: 1, killCount: 0
     };
     
     if (character && player.children[0] && player.children[0].material) {
@@ -1479,9 +1741,15 @@ function restartGame() {
     }
 
     enemies.forEach(e => scene.remove(e));
-    projectiles.forEach(p => scene.remove(p));
-    enemyProjectiles.forEach(p => scene.remove(p));
-    gems.forEach(g => scene.remove(g));
+    projectiles.forEach(p => {
+        ProjectilePool.returnPlayerProjectile(p);
+    });
+    enemyProjectiles.forEach(p => {
+        ProjectilePool.returnEnemyProjectile(p);
+    });
+    gems.forEach(g => {
+        GemPool.return(g);
+    });
     enemies = [];
     projectiles = [];
     enemyProjectiles = [];
@@ -1494,7 +1762,7 @@ function restartGame() {
     lastSpawnTime = 0;
     difficultyMultiplier = 1;
     currentDifficultyTier = 1;
-    lastBossSpawnTime = -60;
+    lastBossSpawnTime = -90;
     comboCount = 0;
     comboTimer = 0;
 
@@ -1508,6 +1776,7 @@ function restartGame() {
     healthBars.reset();
     powerupSystem.reset();
     hazardSystem.reset();
+    WorldSystem.reset();
     
     if (character && character.startingPassives) {
         character.startingPassives.forEach(passiveId => {
