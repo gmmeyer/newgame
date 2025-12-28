@@ -60,6 +60,7 @@ export class ParticleSystem {
         });
         
         this.points = new THREE.Points(this.geometry, this.material);
+        this.qualityMultiplier = 1.0;
     }
     
     emit(config) {
@@ -75,7 +76,9 @@ export class ParticleSystem {
             gravity = 0
         } = config;
         
-        for (let i = 0; i < count; i++) {
+        const adjustedCount = Math.max(1, Math.floor(count * this.qualityMultiplier));
+        
+        for (let i = 0; i < adjustedCount; i++) {
             const idx = this.particleIndex;
             const idx3 = idx * 3;
             

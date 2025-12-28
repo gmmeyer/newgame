@@ -13,6 +13,12 @@ export class RetroAudio {
         this.masterGain.connect(this.ctx.destination);
         this.initialized = true;
     }
+    
+    setMasterVolume(volume) {
+        if (this.masterGain) {
+            this.masterGain.gain.value = 0.3 * volume;
+        }
+    }
 
     playShoot() {
         if (!this.initialized) return;

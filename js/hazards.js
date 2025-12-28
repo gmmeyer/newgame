@@ -46,7 +46,7 @@ export class HazardSystem {
     }
     
     spawnRandomHazard(playerPosition, gameTime) {
-        const hazardTypes = ['laserGrid', 'dangerZone', 'pulsingOrb'];
+        const hazardTypes = ['laserGrid', 'dangerZone', 'pulsingOrb', 'lavaPool', 'sweepingBeam'];
         const type = hazardTypes[Math.floor(Math.random() * hazardTypes.length)];
         
         const angle = Math.random() * Math.PI * 2;
@@ -65,6 +65,12 @@ export class HazardSystem {
             case 'pulsingOrb':
                 hazard = new PulsingOrb(this.scene, this.particleSystem, x, z);
                 break;
+            case 'lavaPool':
+                hazard = new LavaPool(this.scene, this.particleSystem, x, z);
+                break;
+            case 'sweepingBeam':
+                hazard = new SweepingBeam(this.scene, this.particleSystem, x, z);
+                break;
         }
         
         if (hazard) {
@@ -76,6 +82,94 @@ export class HazardSystem {
         this.hazards.forEach(h => h.destroy());
         this.hazards = [];
         this.spawnCooldown = 0;
+    }
+    
+    spawnFireTrail(position, radius, damage) {
+        const fire = new FireTrail(this.scene, this.particleSystem, position.x, position.z, radius, damage);
+        this.hazards.push(fire);
+    }
+}
+
+class FireTrail {
+    constructor(scene, particleSystem, x, z, radius = 2, damage = 8) {
+        this.scene = scene;
+        this.particleSystem = particleSystem;
+        this.position = new THREE.Vector3(x, 0, z);
+        this.radius = radius;
+        this.damage = damage;
+        this.lifetime = 3;
+        this.age = 0;
+        this.isActive = true;
+        this.isExpired = false;
+        this.damageCooldown = new Map();
+        
+        const geometry = new THREE.CircleGeometry(radius, 16);
+        geometry.rotateX(-Math.PI / 2);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0xff4400,
+            transparent: true,
+            opacity: 0.6
+        });
+        this.mesh = new THREE.Mesh(geometry, material);
+        this.mesh.position.set(x, 0.05, z);
+        this.scene.add(this.mesh);
+    }
+    
+    update(deltaTime, gameTime) {
+        this.age += deltaTime;
+        
+        const fadeStart = this.lifetime * 0.6;
+        if (this.age > fadeStart) {
+            const fadeProgress = (this.age - fadeStart) / (this.lifetime - fadeStart);
+            this.mesh.material.opacity = 0.6 * (1 - fadeProgress);
+        }
+        
+        if (Math.random() < 0.3) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.random() * this.radius * 0.8;
+            this.particleSystem.emit({
+                position: { 
+                    x: this.position.x + Math.cos(angle) * dist, 
+                    y: 0.2, 
+                    z: this.position.z + Math.sin(angle) * dist 
+                },
+                velocity: { x: 0, y: 2 + Math.random() * 2, z: 0 },
+                color: { r: 1, g: 0.3 + Math.random() * 0.3, b: 0 },
+                count: 1, spread: 0.2, size: 0.6, lifetime: 0.4, gravity: -1
+            });
+        }
+        
+        if (this.age >= this.lifetime) {
+            this.isExpired = true;
+            this.isActive = false;
+        }
+    }
+    
+    checkPlayerCollision(playerPosition) {
+        const dist = Math.sqrt(
+            Math.pow(playerPosition.x - this.position.x, 2) + 
+            Math.pow(playerPosition.z - this.position.z, 2)
+        );
+        
+        if (dist < this.radius + 0.5) {
+            const now = Date.now();
+            const lastDamage = this.damageCooldown.get('player') || 0;
+            if (now - lastDamage > 500) {
+                this.damageCooldown.set('player', now);
+                return this.damage;
+            }
+        }
+        return 0;
+    }
+    
+    checkEnemyCollision(enemyPosition) {
+        return 0;
+    }
+    
+    destroy() {
+        this.scene.remove(this.mesh);
+        this.mesh.geometry.dispose();
+        this.mesh.material.dispose();
     }
 }
 
@@ -441,6 +535,259 @@ class PulsingOrb {
         
         const dist = this.position.distanceTo(enemyPosition);
         if (dist < this.radius) {
+            const id = `${enemyPosition.x.toFixed(1)}_${enemyPosition.z.toFixed(1)}`;
+            const now = Date.now();
+            const lastDamage = this.damageCooldown.get(id) || 0;
+            if (now - lastDamage > 300) {
+                this.damageCooldown.set(id, now);
+                return this.damage;
+            }
+        }
+        return 0;
+    }
+    
+    destroy() {
+        this.scene.remove(this.group);
+    }
+}
+
+class LavaPool {
+    constructor(scene, particleSystem, x, z) {
+        this.scene = scene;
+        this.particleSystem = particleSystem;
+        this.position = new THREE.Vector3(x, 0, z);
+        this.baseRadius = 2;
+        this.maxRadius = 6;
+        this.currentRadius = this.baseRadius;
+        this.expandSpeed = 0.5;
+        this.damage = 8;
+        this.lifetime = 12;
+        this.age = 0;
+        this.isActive = true;
+        this.isExpired = false;
+        this.damageCooldown = new Map();
+        
+        const geometry = new THREE.CircleGeometry(1, 24);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0xff4400,
+            transparent: true,
+            opacity: 0.7
+        });
+        this.mesh = new THREE.Mesh(geometry, material);
+        this.mesh.rotation.x = -Math.PI / 2;
+        this.mesh.position.set(x, 0.02, z);
+        this.mesh.scale.set(this.currentRadius, this.currentRadius, 1);
+        this.scene.add(this.mesh);
+    }
+    
+    update(deltaTime, gameTime) {
+        this.age += deltaTime;
+        
+        if (this.age >= this.lifetime) {
+            this.isExpired = true;
+            return;
+        }
+        
+        if (this.age < this.lifetime * 0.7 && this.currentRadius < this.maxRadius) {
+            this.currentRadius = Math.min(this.maxRadius, this.currentRadius + this.expandSpeed * deltaTime);
+            this.mesh.scale.set(this.currentRadius, this.currentRadius, 1);
+        }
+        
+        if (this.age > this.lifetime * 0.7) {
+            const fadeProgress = (this.age - this.lifetime * 0.7) / (this.lifetime * 0.3);
+            this.mesh.material.opacity = 0.7 * (1 - fadeProgress);
+        }
+        
+        if (Math.random() < 0.2) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.random() * this.currentRadius * 0.8;
+            this.particleSystem.emit({
+                position: { 
+                    x: this.position.x + Math.cos(angle) * dist, 
+                    y: 0.1, 
+                    z: this.position.z + Math.sin(angle) * dist 
+                },
+                velocity: { x: 0, y: 1.5, z: 0 },
+                color: { r: 1, g: 0.4 + Math.random() * 0.3, b: 0 },
+                count: 1, spread: 0.2, size: 0.5, lifetime: 0.5, gravity: 0
+            });
+        }
+    }
+    
+    checkPlayerCollision(playerPosition) {
+        const dist = Math.sqrt(
+            Math.pow(playerPosition.x - this.position.x, 2) + 
+            Math.pow(playerPosition.z - this.position.z, 2)
+        );
+        
+        if (dist < this.currentRadius) {
+            const now = Date.now();
+            const lastDamage = this.damageCooldown.get('player') || 0;
+            if (now - lastDamage > 400) {
+                this.damageCooldown.set('player', now);
+                return this.damage;
+            }
+        }
+        return 0;
+    }
+    
+    checkEnemyCollision(enemyPosition) {
+        const dist = Math.sqrt(
+            Math.pow(enemyPosition.x - this.position.x, 2) + 
+            Math.pow(enemyPosition.z - this.position.z, 2)
+        );
+        
+        if (dist < this.currentRadius) {
+            const id = `${enemyPosition.x.toFixed(1)}_${enemyPosition.z.toFixed(1)}`;
+            const now = Date.now();
+            const lastDamage = this.damageCooldown.get(id) || 0;
+            if (now - lastDamage > 400) {
+                this.damageCooldown.set(id, now);
+                return this.damage;
+            }
+        }
+        return 0;
+    }
+    
+    destroy() {
+        this.scene.remove(this.mesh);
+        this.mesh.geometry.dispose();
+        this.mesh.material.dispose();
+    }
+}
+
+class SweepingBeam {
+    constructor(scene, particleSystem, x, z) {
+        this.scene = scene;
+        this.particleSystem = particleSystem;
+        this.position = new THREE.Vector3(x, 0, z);
+        this.length = 12;
+        this.damage = 20;
+        this.rotationSpeed = 1.5;
+        this.angle = Math.random() * Math.PI * 2;
+        this.lifetime = 10;
+        this.warningTime = 1.5;
+        this.age = 0;
+        this.isActive = false;
+        this.isExpired = false;
+        this.damageCooldown = new Map();
+        
+        this.createBeam();
+    }
+    
+    createBeam() {
+        this.group = new THREE.Group();
+        this.group.position.set(this.position.x, 0.5, this.position.z);
+        
+        const coreGeom = new THREE.SphereGeometry(0.6, 12, 12);
+        const coreMat = new THREE.MeshBasicMaterial({
+            color: 0xff00ff,
+            transparent: true,
+            opacity: 0.8
+        });
+        this.core = new THREE.Mesh(coreGeom, coreMat);
+        this.group.add(this.core);
+        
+        const beamGeom = new THREE.BoxGeometry(this.length, 0.3, 0.3);
+        beamGeom.translate(this.length / 2, 0, 0);
+        const beamMat = new THREE.MeshBasicMaterial({
+            color: 0xff00ff,
+            transparent: true,
+            opacity: 0.3
+        });
+        this.beam = new THREE.Mesh(beamGeom, beamMat);
+        this.group.add(this.beam);
+        
+        const light = new THREE.PointLight(0xff00ff, 1, 15);
+        this.group.add(light);
+        this.light = light;
+        
+        this.scene.add(this.group);
+    }
+    
+    update(deltaTime, gameTime) {
+        this.age += deltaTime;
+        
+        if (this.age >= this.lifetime) {
+            this.isExpired = true;
+            return;
+        }
+        
+        if (this.age < this.warningTime) {
+            const flash = Math.sin(this.age * 20) * 0.3 + 0.5;
+            this.beam.material.opacity = flash * 0.3;
+            this.core.material.opacity = flash;
+        } else {
+            this.isActive = true;
+            this.beam.material.opacity = 0.7;
+            this.beam.material.color.setHex(0xff0066);
+            
+            this.angle += this.rotationSpeed * deltaTime;
+            this.group.rotation.y = this.angle;
+            
+            const pulse = Math.sin(this.age * 10) * 0.2 + 0.8;
+            this.light.intensity = pulse * 2;
+            
+            if (Math.random() < 0.3) {
+                const beamDist = Math.random() * this.length;
+                const beamX = this.position.x + Math.cos(this.angle) * beamDist;
+                const beamZ = this.position.z + Math.sin(this.angle) * beamDist;
+                this.particleSystem.emit({
+                    position: { x: beamX, y: 0.5, z: beamZ },
+                    velocity: { x: 0, y: 1.5, z: 0 },
+                    color: { r: 1, g: 0, b: 0.5 },
+                    count: 1, spread: 0.2, size: 0.4, lifetime: 0.3, gravity: 0
+                });
+            }
+        }
+        
+        if (this.age > this.lifetime - 1) {
+            const fade = (this.lifetime - this.age);
+            this.beam.material.opacity = 0.7 * fade;
+            this.core.material.opacity = fade;
+        }
+    }
+    
+    checkPlayerCollision(playerPosition) {
+        if (!this.isActive) return 0;
+        
+        const toPlayer = new THREE.Vector2(
+            playerPosition.x - this.position.x,
+            playerPosition.z - this.position.z
+        );
+        const beamDir = new THREE.Vector2(Math.cos(this.angle), Math.sin(this.angle));
+        
+        const dot = toPlayer.dot(beamDir);
+        if (dot < 0 || dot > this.length) return 0;
+        
+        const perpDist = Math.abs(toPlayer.x * beamDir.y - toPlayer.y * beamDir.x);
+        
+        if (perpDist < 1) {
+            const now = Date.now();
+            const lastDamage = this.damageCooldown.get('player') || 0;
+            if (now - lastDamage > 300) {
+                this.damageCooldown.set('player', now);
+                return this.damage;
+            }
+        }
+        return 0;
+    }
+    
+    checkEnemyCollision(enemyPosition) {
+        if (!this.isActive) return 0;
+        
+        const toEnemy = new THREE.Vector2(
+            enemyPosition.x - this.position.x,
+            enemyPosition.z - this.position.z
+        );
+        const beamDir = new THREE.Vector2(Math.cos(this.angle), Math.sin(this.angle));
+        
+        const dot = toEnemy.dot(beamDir);
+        if (dot < 0 || dot > this.length) return 0;
+        
+        const perpDist = Math.abs(toEnemy.x * beamDir.y - toEnemy.y * beamDir.x);
+        
+        if (perpDist < 1.5) {
             const id = `${enemyPosition.x.toFixed(1)}_${enemyPosition.z.toFixed(1)}`;
             const now = Date.now();
             const lastDamage = this.damageCooldown.get(id) || 0;

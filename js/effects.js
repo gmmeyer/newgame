@@ -7,9 +7,11 @@ export class ScreenShake {
         this.maxOffset = 0.8;
         this.maxRotation = 0.03;
         this.shakeTime = 0;
+        this.enabled = true;
     }
     
     addTrauma(amount) {
+        if (!this.enabled) return;
         this.trauma = Math.min(1, this.trauma + amount);
     }
     

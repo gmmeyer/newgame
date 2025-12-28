@@ -42,6 +42,58 @@
             <div id="upgrade-options"></div>
         </div>
 
+        <div id="pause-screen">
+            <h1>PAUSED</h1>
+            <div id="pause-stats">
+                <div class="pause-section">
+                    <h3>STATS</h3>
+                    <div id="pause-stats-list"></div>
+                </div>
+                <div class="pause-section">
+                    <h3>WEAPONS</h3>
+                    <div id="pause-weapons-list"></div>
+                </div>
+                <div class="pause-section">
+                    <h3>PASSIVES</h3>
+                    <div id="pause-passives-list"></div>
+                </div>
+            </div>
+            <div id="pause-buttons">
+                <button id="resume-btn">[ RESUME ]</button>
+                <button id="settings-btn">[ SETTINGS ]</button>
+                <button id="quit-btn">[ QUIT TO MENU ]</button>
+            </div>
+        </div>
+
+        <div id="settings-screen">
+            <h1>SETTINGS</h1>
+            <div id="settings-options">
+                <div class="setting-row">
+                    <label>Master Volume</label>
+                    <input type="range" id="volume-master" min="0" max="100" value="100">
+                    <span id="volume-master-value">100%</span>
+                </div>
+                <div class="setting-row">
+                    <label>SFX Volume</label>
+                    <input type="range" id="volume-sfx" min="0" max="100" value="100">
+                    <span id="volume-sfx-value">100%</span>
+                </div>
+                <div class="setting-row">
+                    <label>Screen Shake</label>
+                    <input type="checkbox" id="setting-screenshake" checked>
+                </div>
+                <div class="setting-row">
+                    <label>Particle Quality</label>
+                    <select id="setting-particles">
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high" selected>High</option>
+                    </select>
+                </div>
+            </div>
+            <button id="settings-back-btn">[ BACK ]</button>
+        </div>
+
         <div id="game-over-screen">
             <h1>GAME OVER</h1>
             <div id="final-stats">

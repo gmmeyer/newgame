@@ -327,22 +327,432 @@ export class ChainLightning {
     }
 }
 
+export class Flamethrower {
+    constructor(scene, particleSystem, audio) {
+        this.scene = scene;
+        this.particleSystem = particleSystem;
+        this.audio = audio;
+        this.level = 0;
+        this.baseDamage = 8;
+        this.baseRange = 5;
+        this.baseConeAngle = Math.PI / 4;
+        this.tickRate = 0.1;
+        this.lastTickTime = 0;
+        this.burnDuration = 2;
+        this.burnDamagePerSecond = 5;
+        this.flameAngle = 0;
+        this.burningEnemies = new Map();
+    }
+    
+    get isActive() { return this.level > 0; }
+    get damage() { return this.baseDamage + this.level * 4; }
+    get range() { return this.baseRange + this.level * 0.8; }
+    get coneAngle() { return this.baseConeAngle + this.level * 0.05; }
+    get burnDPS() { return this.burnDamagePerSecond + this.level * 2; }
+    
+    upgrade() { this.level++; }
+    
+    update(deltaTime, gameTime, playerPosition, enemies, playerDirection, onHit) {
+        if (!this.isActive) return;
+        
+        for (const [enemyId, burnData] of this.burningEnemies) {
+            burnData.timer -= deltaTime;
+            burnData.tickTimer -= deltaTime;
+            
+            if (burnData.tickTimer <= 0) {
+                burnData.tickTimer = 0.5;
+                const enemy = enemies.find(e => e.uuid === enemyId);
+                if (enemy && onHit) {
+                    const idx = enemies.indexOf(enemy);
+                    onHit(enemy, idx, this.burnDPS * 0.5);
+                    
+                    this.particleSystem.emit({
+                        position: { x: enemy.position.x, y: 1.5, z: enemy.position.z },
+                        velocity: { x: 0, y: 2, z: 0 },
+                        color: { r: 1, g: 0.3, b: 0 },
+                        count: 3, spread: 0.3, size: 0.5, lifetime: 0.3, gravity: -1
+                    });
+                }
+            }
+            
+            if (burnData.timer <= 0) {
+                this.burningEnemies.delete(enemyId);
+            }
+        }
+        
+        if (gameTime - this.lastTickTime < this.tickRate) return;
+        this.lastTickTime = gameTime;
+        
+        this.flameAngle += deltaTime * 2;
+        const baseAngle = Math.atan2(playerDirection.z, playerDirection.x);
+        
+        for (let i = 0; i < 5; i++) {
+            const spreadAngle = baseAngle + (Math.random() - 0.5) * this.coneAngle;
+            const dist = Math.random() * this.range;
+            const x = playerPosition.x + Math.cos(spreadAngle) * dist;
+            const z = playerPosition.z + Math.sin(spreadAngle) * dist;
+            
+            this.particleSystem.emit({
+                position: { x, y: 0.8, z },
+                velocity: { x: Math.cos(spreadAngle) * 3, y: 1 + Math.random(), z: Math.sin(spreadAngle) * 3 },
+                color: { r: 1, g: 0.3 + Math.random() * 0.4, b: 0 },
+                count: 2, spread: 0.2, size: 0.8 + Math.random() * 0.5, lifetime: 0.3, gravity: -2
+            });
+        }
+        
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const enemy = enemies[i];
+            if (enemy.userData.phased) continue;
+            
+            const toEnemy = new THREE.Vector3().subVectors(enemy.position, playerPosition);
+            const dist = toEnemy.length();
+            if (dist > this.range) continue;
+            
+            toEnemy.normalize();
+            const angle = Math.abs(Math.atan2(toEnemy.z, toEnemy.x) - baseAngle);
+            const normalizedAngle = Math.min(angle, Math.PI * 2 - angle);
+            
+            if (normalizedAngle <= this.coneAngle / 2) {
+                if (onHit) onHit(enemy, i, this.damage);
+                
+                this.burningEnemies.set(enemy.uuid, {
+                    timer: this.burnDuration,
+                    tickTimer: 0.5
+                });
+            }
+        }
+    }
+    
+    reset() {
+        this.level = 0;
+        this.burningEnemies.clear();
+    }
+}
+
+export class Boomerang {
+    constructor(scene, particleSystem, audio) {
+        this.scene = scene;
+        this.particleSystem = particleSystem;
+        this.audio = audio;
+        this.level = 0;
+        this.baseDamage = 25;
+        this.baseSpeed = 12;
+        this.baseRange = 10;
+        this.baseCooldown = 2;
+        this.lastFireTime = -999;
+        this.boomerangs = [];
+    }
+    
+    get isActive() { return this.level > 0; }
+    get damage() { return this.baseDamage + this.level * 12; }
+    get speed() { return this.baseSpeed + this.level * 1; }
+    get range() { return this.baseRange + this.level * 2; }
+    get cooldown() { return Math.max(0.8, this.baseCooldown - this.level * 0.2); }
+    get count() { return 1 + Math.floor(this.level / 3); }
+    
+    upgrade() { this.level++; }
+    
+    createBoomerang(position, direction) {
+        const geometry = new THREE.TorusGeometry(0.4, 0.1, 8, 16);
+        const material = new THREE.MeshStandardMaterial({
+            color: 0xffaa00,
+            emissive: 0xffaa00,
+            emissiveIntensity: 0.6,
+            metalness: 0.8,
+            roughness: 0.2
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.copy(position);
+        mesh.position.y = 1;
+        mesh.rotation.x = Math.PI / 2;
+        
+        mesh.userData = {
+            direction: direction.clone().normalize(),
+            distanceTraveled: 0,
+            returning: false,
+            hitEnemies: new Set(),
+            speed: this.speed,
+            maxDistance: this.range,
+            spin: 0
+        };
+        
+        this.scene.add(mesh);
+        this.boomerangs.push(mesh);
+    }
+    
+    update(deltaTime, gameTime, playerPosition, enemies, gems, onHit, onGemCollect) {
+        if (!this.isActive) return;
+        
+        for (let i = this.boomerangs.length - 1; i >= 0; i--) {
+            const boom = this.boomerangs[i];
+            const data = boom.userData;
+            
+            data.spin += deltaTime * 15;
+            boom.rotation.z = data.spin;
+            
+            const moveDir = data.returning 
+                ? new THREE.Vector3().subVectors(playerPosition, boom.position).normalize()
+                : data.direction;
+            
+            const moveAmount = data.speed * deltaTime;
+            boom.position.add(moveDir.clone().multiplyScalar(moveAmount));
+            
+            if (!data.returning) {
+                data.distanceTraveled += moveAmount;
+                if (data.distanceTraveled >= data.maxDistance) {
+                    data.returning = true;
+                    data.hitEnemies.clear();
+                }
+            }
+            
+            if (data.returning && boom.position.distanceTo(playerPosition) < 1.5) {
+                this.scene.remove(boom);
+                boom.geometry.dispose();
+                boom.material.dispose();
+                this.boomerangs.splice(i, 1);
+                continue;
+            }
+            
+            for (let j = enemies.length - 1; j >= 0; j--) {
+                const enemy = enemies[j];
+                if (enemy.userData.phased) continue;
+                if (data.hitEnemies.has(enemy.uuid)) continue;
+                
+                const dist = boom.position.distanceTo(enemy.position);
+                const hitRadius = enemy.userData.isBoss ? 2.5 : 1.2;
+                
+                if (dist < hitRadius) {
+                    data.hitEnemies.add(enemy.uuid);
+                    if (onHit) onHit(enemy, j, this.damage);
+                    
+                    this.particleSystem.emit({
+                        position: { x: boom.position.x, y: 1, z: boom.position.z },
+                        velocity: { x: 0, y: 3, z: 0 },
+                        color: { r: 1, g: 0.6, b: 0 },
+                        count: 8, spread: 0.4, size: 0.6, lifetime: 0.3, gravity: 5
+                    });
+                }
+            }
+            
+            if (data.returning && onGemCollect) {
+                for (let j = gems.length - 1; j >= 0; j--) {
+                    const gem = gems[j];
+                    const dist = boom.position.distanceTo(gem.position);
+                    if (dist < 2) {
+                        onGemCollect(gem, j);
+                    }
+                }
+            }
+            
+            if (Math.random() < 0.3) {
+                this.particleSystem.emit({
+                    position: { x: boom.position.x, y: boom.position.y, z: boom.position.z },
+                    velocity: { x: -moveDir.x * 2, y: 0.5, z: -moveDir.z * 2 },
+                    color: { r: 1, g: 0.5, b: 0 },
+                    count: 1, spread: 0.1, size: 0.4, lifetime: 0.2, gravity: 0
+                });
+            }
+        }
+        
+        if (gameTime - this.lastFireTime >= this.cooldown) {
+            this.lastFireTime = gameTime;
+            
+            let nearest = null;
+            let nearestDist = this.range * 2;
+            for (const enemy of enemies) {
+                if (enemy.userData.phased) continue;
+                const dist = playerPosition.distanceTo(enemy.position);
+                if (dist < nearestDist) {
+                    nearestDist = dist;
+                    nearest = enemy;
+                }
+            }
+            
+            if (nearest) {
+                const count = this.count;
+                for (let c = 0; c < count; c++) {
+                    const dir = new THREE.Vector3().subVectors(nearest.position, playerPosition);
+                    dir.y = 0;
+                    if (count > 1) {
+                        const spreadAngle = (c - (count - 1) / 2) * 0.3;
+                        dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), spreadAngle);
+                    }
+                    this.createBoomerang(playerPosition, dir);
+                }
+                this.audio.playShoot();
+            }
+        }
+    }
+    
+    reset() {
+        this.level = 0;
+        this.lastFireTime = -999;
+        this.boomerangs.forEach(b => {
+            this.scene.remove(b);
+            b.geometry.dispose();
+            b.material.dispose();
+        });
+        this.boomerangs = [];
+    }
+}
+
+export class OrbitalLaser {
+    constructor(scene, particleSystem, audio) {
+        this.scene = scene;
+        this.particleSystem = particleSystem;
+        this.audio = audio;
+        this.level = 0;
+        this.baseDamage = 15;
+        this.baseLength = 8;
+        this.rotationSpeed = 1.5;
+        this.angle = 0;
+        this.tickRate = 0.1;
+        this.lastTickTime = 0;
+        this.beams = [];
+        this.beamMeshes = [];
+    }
+    
+    get isActive() { return this.level > 0; }
+    get damage() { return this.baseDamage + this.level * 8; }
+    get length() { return this.baseLength + this.level * 1.5; }
+    get beamCount() { return 1 + Math.floor(this.level / 2); }
+    get speed() { return this.rotationSpeed + this.level * 0.2; }
+    
+    upgrade() {
+        this.level++;
+        this.rebuildBeams();
+    }
+    
+    rebuildBeams() {
+        this.beamMeshes.forEach(m => {
+            this.scene.remove(m);
+            m.geometry.dispose();
+            m.material.dispose();
+        });
+        this.beamMeshes = [];
+        
+        const count = this.beamCount;
+        for (let i = 0; i < count; i++) {
+            const geometry = new THREE.CylinderGeometry(0.15, 0.15, this.length, 8);
+            geometry.rotateZ(Math.PI / 2);
+            geometry.translate(this.length / 2, 0, 0);
+            
+            const material = new THREE.MeshStandardMaterial({
+                color: 0xff0066,
+                emissive: 0xff0066,
+                emissiveIntensity: 1,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.userData = { baseAngle: (Math.PI * 2 / count) * i };
+            mesh.position.y = 0.8;
+            this.beamMeshes.push(mesh);
+            this.scene.add(mesh);
+        }
+    }
+    
+    update(deltaTime, gameTime, playerPosition, enemies, onHit) {
+        if (!this.isActive) return;
+        
+        this.angle += this.speed * deltaTime;
+        
+        this.beamMeshes.forEach((mesh, idx) => {
+            mesh.position.x = playerPosition.x;
+            mesh.position.z = playerPosition.z;
+            mesh.rotation.y = this.angle + mesh.userData.baseAngle;
+            
+            const pulseIntensity = 0.7 + Math.sin(gameTime * 10 + idx) * 0.3;
+            mesh.material.emissiveIntensity = pulseIntensity;
+        });
+        
+        if (gameTime - this.lastTickTime < this.tickRate) return;
+        this.lastTickTime = gameTime;
+        
+        this.beamMeshes.forEach(mesh => {
+            const beamAngle = this.angle + mesh.userData.baseAngle;
+            const beamDir = new THREE.Vector3(Math.cos(beamAngle), 0, Math.sin(beamAngle));
+            
+            for (let d = 1; d < this.length; d += 2) {
+                if (Math.random() < 0.3) {
+                    const x = playerPosition.x + beamDir.x * d;
+                    const z = playerPosition.z + beamDir.z * d;
+                    this.particleSystem.emit({
+                        position: { x, y: 0.8, z },
+                        velocity: { x: 0, y: 2, z: 0 },
+                        color: { r: 1, g: 0, b: 0.4 },
+                        count: 1, spread: 0.2, size: 0.4, lifetime: 0.2, gravity: 0
+                    });
+                }
+            }
+            
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                if (enemy.userData.phased) continue;
+                
+                const toEnemy = new THREE.Vector3().subVectors(enemy.position, playerPosition);
+                toEnemy.y = 0;
+                const dist = toEnemy.length();
+                
+                if (dist > this.length) continue;
+                
+                toEnemy.normalize();
+                const dot = toEnemy.dot(beamDir);
+                const perpDist = Math.sqrt(1 - dot * dot) * dist;
+                
+                const hitRadius = enemy.userData.isBoss ? 2.5 : 1.2;
+                if (dot > 0 && perpDist < hitRadius + 0.3) {
+                    if (onHit) onHit(enemy, i, this.damage);
+                    
+                    this.particleSystem.emit({
+                        position: { x: enemy.position.x, y: 1, z: enemy.position.z },
+                        velocity: { x: 0, y: 2, z: 0 },
+                        color: { r: 1, g: 0, b: 0.4 },
+                        count: 5, spread: 0.3, size: 0.5, lifetime: 0.2, gravity: 3
+                    });
+                }
+            }
+        });
+    }
+    
+    reset() {
+        this.level = 0;
+        this.angle = 0;
+        this.beamMeshes.forEach(m => {
+            this.scene.remove(m);
+            m.geometry.dispose();
+            m.material.dispose();
+        });
+        this.beamMeshes = [];
+    }
+}
+
 export class WeaponSystem {
     constructor(scene, particleSystem, shockwaves, screenShake, audio) {
         this.orbitingShields = new OrbitingShields(scene, particleSystem);
         this.areaNova = new AreaNova(scene, particleSystem, shockwaves, screenShake, audio);
         this.chainLightning = new ChainLightning(scene, particleSystem, audio);
+        this.flamethrower = new Flamethrower(scene, particleSystem, audio);
+        this.boomerang = new Boomerang(scene, particleSystem, audio);
+        this.orbitalLaser = new OrbitalLaser(scene, particleSystem, audio);
     }
     
-    update(deltaTime, gameTime, playerPosition, enemies, onHit) {
+    update(deltaTime, gameTime, playerPosition, enemies, onHit, playerDirection, gems, onGemCollect) {
         this.orbitingShields.update(deltaTime, playerPosition, enemies, gameTime, onHit);
         this.areaNova.update(gameTime, playerPosition, enemies, onHit);
         this.chainLightning.update(deltaTime, gameTime, playerPosition, enemies, onHit);
+        this.flamethrower.update(deltaTime, gameTime, playerPosition, enemies, playerDirection || new THREE.Vector3(1, 0, 0), onHit);
+        this.boomerang.update(deltaTime, gameTime, playerPosition, enemies, gems || [], onHit, onGemCollect);
+        this.orbitalLaser.update(deltaTime, gameTime, playerPosition, enemies, onHit);
     }
     
     reset() {
         this.orbitingShields.reset();
         this.areaNova.reset();
         this.chainLightning.reset();
+        this.flamethrower.reset();
+        this.boomerang.reset();
+        this.orbitalLaser.reset();
     }
 }

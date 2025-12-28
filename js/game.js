@@ -48,6 +48,7 @@ let chromaticAberration;
 
 let cameraTargetPosition = new THREE.Vector3();
 let cameraBasePosition = new THREE.Vector3();
+let playerDirection = new THREE.Vector3(1, 0, 0);
 
 let playerStats = {
     health: 100,
@@ -67,6 +68,30 @@ let playerStats = {
 let comboCount = 0;
 let comboTimer = 0;
 const COMBO_TIMEOUT = 2;
+
+const COMBO_THRESHOLDS = [
+    { threshold: 5,  damageBonus: 0.10, speedBonus: 0,    gemBonus: 1.0, heal: 0,  color: '#ffff00', name: 'NICE' },
+    { threshold: 10, damageBonus: 0.15, speedBonus: 0.05, gemBonus: 1.0, heal: 0,  color: '#ffaa00', name: 'GREAT' },
+    { threshold: 25, damageBonus: 0.25, speedBonus: 0.10, gemBonus: 1.5, heal: 0,  color: '#ff6600', name: 'AMAZING' },
+    { threshold: 50, damageBonus: 0.40, speedBonus: 0.15, gemBonus: 2.0, heal: 5,  color: '#ff00ff', name: 'UNSTOPPABLE' },
+    { threshold: 100, damageBonus: 0.60, speedBonus: 0.20, gemBonus: 2.5, heal: 10, color: '#00ffff', name: 'GODLIKE' }
+];
+
+function getComboBonus() {
+    let bonus = { damageMultiplier: 1, speedMultiplier: 1, gemMultiplier: 1, heal: 0, tier: null };
+    for (let i = COMBO_THRESHOLDS.length - 1; i >= 0; i--) {
+        if (comboCount >= COMBO_THRESHOLDS[i].threshold) {
+            const t = COMBO_THRESHOLDS[i];
+            bonus.damageMultiplier = 1 + t.damageBonus;
+            bonus.speedMultiplier = 1 + t.speedBonus;
+            bonus.gemMultiplier = t.gemBonus;
+            bonus.heal = t.heal;
+            bonus.tier = t;
+            break;
+        }
+    }
+    return bonus;
+}
 
 let gameTime = 0;
 let lastAttackTime = 0;
@@ -483,6 +508,34 @@ const enemyTypes = {
         isBoss: true,
         gemCount: () => 10 + Math.floor(Math.random() * 10),
         deathParticles: { color: { r: 1, g: 0.3, b: 0.1 }, count: 150, size: 3 }
+    },
+    miniboss_charger: {
+        geometry: () => new THREE.ConeGeometry(0.8, 1.5, 6),
+        color: 0xff4400, emissive: 0xff6600,
+        health: 200, speed: 2, damage: 25, scale: 1.8, weight: 0,
+        isBoss: true,
+        chargeSpeed: 15, chargeCooldown: 3, chargeDistance: 12,
+        leavesFireTrail: true,
+        gemCount: () => 8 + Math.floor(Math.random() * 5),
+        deathParticles: { color: { r: 1, g: 0.4, b: 0 }, count: 100, size: 2 }
+    },
+    miniboss_summoner: {
+        geometry: () => new THREE.OctahedronGeometry(0.8, 1),
+        color: 0x8800ff, emissive: 0xaa44ff,
+        health: 150, speed: 1.5, damage: 15, scale: 1.6, weight: 0,
+        isBoss: true,
+        summonCooldown: 4, summonCount: 2, teleportOnHit: true, teleportCooldown: 1.5,
+        gemCount: () => 8 + Math.floor(Math.random() * 5),
+        deathParticles: { color: { r: 0.6, g: 0, b: 1 }, count: 100, size: 2 }
+    },
+    miniboss_splitter_king: {
+        geometry: () => new THREE.IcosahedronGeometry(1, 1),
+        color: 0x00ffaa, emissive: 0x00ddaa,
+        health: 300, speed: 2, damage: 30, scale: 2.2, weight: 0,
+        isBoss: true,
+        splitCount: 4, splitsIntoElites: true,
+        gemCount: () => 12 + Math.floor(Math.random() * 8),
+        deathParticles: { color: { r: 0, g: 1, b: 0.7 }, count: 120, size: 2.5 }
     }
 };
 
@@ -515,6 +568,24 @@ const weaponUpgrades = [
         desc: () => weaponSystem.chainLightning.level === 0 ? 'Lightning that chains between 3 enemies' : `+1 chain, +10 damage, faster cooldown`,
         category: 'weapon', maxLevel: 5, unlockLevel: 4,
         apply: () => { weaponSystem.chainLightning.upgrade(); metaSystem.statistics.recordUpgrade('chainLightning', true, false); }
+    },
+    { 
+        id: 'flamethrower', name: 'Flamethrower', 
+        desc: () => weaponSystem.flamethrower.level === 0 ? 'Spray fire in a cone, burning enemies' : `+4 damage, +burn damage, wider cone`,
+        category: 'weapon', maxLevel: 5, unlockLevel: 3,
+        apply: () => { weaponSystem.flamethrower.upgrade(); metaSystem.statistics.recordUpgrade('flamethrower', true, false); }
+    },
+    { 
+        id: 'boomerang', name: 'Boomerang', 
+        desc: () => weaponSystem.boomerang.level === 0 ? 'Throws boomerangs that pierce and return' : `+12 damage, +range, faster throws`,
+        category: 'weapon', maxLevel: 5, unlockLevel: 2,
+        apply: () => { weaponSystem.boomerang.upgrade(); metaSystem.statistics.recordUpgrade('boomerang', true, false); }
+    },
+    { 
+        id: 'orbitalLaser', name: 'Orbital Laser', 
+        desc: () => weaponSystem.orbitalLaser.level === 0 ? 'Rotating laser beams around you' : `+1 beam, +8 damage, faster spin`,
+        category: 'weapon', maxLevel: 5, unlockLevel: 5,
+        apply: () => { weaponSystem.orbitalLaser.upgrade(); metaSystem.statistics.recordUpgrade('orbitalLaser', true, false); }
     }
 ];
 
@@ -525,7 +596,7 @@ function getAvailableUpgrades() {
     
     weaponUpgrades.forEach(u => {
         if (playerStats.level >= (u.unlockLevel || 1)) {
-            const weapon = weaponSystem[u.id.replace('Shields', 'ingShields')];
+            const weapon = weaponSystem[u.id];
             const level = weapon ? weapon.level : 0;
             if (level < u.maxLevel) {
                 available.push({ ...u, currentLevel: level, desc: typeof u.desc === 'function' ? u.desc() : u.desc });
@@ -663,11 +734,23 @@ export function init() {
     clock = new THREE.Clock();
 
     window.addEventListener('resize', onWindowResize);
-    window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            handleEscapeKey();
+        } else {
+            keys[e.key.toLowerCase()] = true;
+        }
+    });
     window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
 
     document.getElementById('start-btn').addEventListener('click', startGame);
     document.getElementById('restart-btn').addEventListener('click', restartGame);
+    document.getElementById('resume-btn').addEventListener('click', resumeGame);
+    document.getElementById('settings-btn').addEventListener('click', showSettings);
+    document.getElementById('quit-btn').addEventListener('click', quitToMenu);
+    document.getElementById('settings-back-btn').addEventListener('click', hideSettings);
+    
+    initSettingsListeners();
 
     initCharacterSelect();
     updateGlobalStatsDisplay();
@@ -1052,6 +1135,33 @@ function spawnEnemies(deltaTime) {
         audio.playBossWarning();
         screenShake.addTrauma(0.5);
     }
+    
+    const miniBossSchedule = [
+        { type: 'miniboss_charger', firstSpawn: 45, interval: 120, warning: 'CHARGER APPROACHES!' },
+        { type: 'miniboss_summoner', firstSpawn: 135, interval: 150, warning: 'SUMMONER AWAKENS!' },
+        { type: 'miniboss_splitter_king', firstSpawn: 225, interval: 180, warning: 'SPLITTER KING EMERGES!' }
+    ];
+    
+    miniBossSchedule.forEach(mb => {
+        if (gameTime >= mb.firstSpawn) {
+            const timeSinceFirst = gameTime - mb.firstSpawn;
+            const spawnNumber = Math.floor(timeSinceFirst / mb.interval);
+            const expectedSpawnTime = mb.firstSpawn + spawnNumber * mb.interval;
+            
+            if (!mb.lastSpawn) mb.lastSpawn = -999;
+            if (gameTime >= expectedSpawnTime && mb.lastSpawn < expectedSpawnTime) {
+                mb.lastSpawn = expectedSpawnTime;
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 30;
+                const x = player.position.x + Math.cos(angle) * distance;
+                const z = player.position.z + Math.sin(angle) * distance;
+                createEnemy(x, z, mb.type);
+                showWaveWarning(mb.warning);
+                audio.playBossWarning();
+                screenShake.addTrauma(0.4);
+            }
+        }
+    });
 
     if (lastSpawnTime >= spawnInterval) {
         lastSpawnTime = 0;
@@ -1113,7 +1223,8 @@ function updatePlayer(deltaTime) {
 
     if (velocity.length() > 0) {
         velocity.normalize();
-        const speed = playerStats.speed * powerupSystem.getSpeedMultiplier();
+        playerDirection.copy(velocity);
+        const speed = playerStats.speed * powerupSystem.getSpeedMultiplier() * getComboBonus().speedMultiplier;
         velocity.multiplyScalar(speed * deltaTime);
         player.position.add(velocity);
         
@@ -1193,7 +1304,67 @@ function updateEnemies(deltaTime) {
             }
         }
 
-        if (data.shootRange && distToPlayer <= data.shootRange && distToPlayer > 3) {
+        if (data.chargeSpeed) {
+            if (!data.isCharging && gameTime - (data.lastChargeTime || 0) >= data.chargeCooldown) {
+                if (distToPlayer < data.chargeDistance * 1.5) {
+                    data.isCharging = true;
+                    data.chargeDirection = new THREE.Vector3().subVectors(player.position, enemy.position).normalize();
+                    data.chargeDirection.y = 0;
+                    data.chargeDistanceTraveled = 0;
+                    data.lastChargeTime = gameTime;
+                    
+                    particleSystem.emit({
+                        position: { x: enemy.position.x, y: 1, z: enemy.position.z },
+                        velocity: { x: 0, y: 5, z: 0 },
+                        color: { r: 1, g: 0.5, b: 0 },
+                        count: 30, spread: 1, size: 1.5, lifetime: 0.5, gravity: 0
+                    });
+                }
+            }
+            
+            if (data.isCharging) {
+                const chargeMove = data.chargeSpeed * deltaTime;
+                enemy.position.add(data.chargeDirection.clone().multiplyScalar(chargeMove));
+                data.chargeDistanceTraveled += chargeMove;
+                
+                if (data.leavesFireTrail) {
+                    hazardSystem.spawnFireTrail(enemy.position.clone(), 2, 8);
+                }
+                
+                if (data.chargeDistanceTraveled >= data.chargeDistance) {
+                    data.isCharging = false;
+                }
+            } else {
+                const direction = new THREE.Vector3();
+                direction.subVectors(player.position, enemy.position).normalize();
+                direction.y = 0;
+                enemy.position.add(direction.multiplyScalar(data.speed * deltaTime));
+            }
+        } else if (data.summonCooldown) {
+            if (gameTime - (data.lastSummonTime || 0) >= data.summonCooldown) {
+                data.lastSummonTime = gameTime;
+                
+                for (let s = 0; s < data.summonCount; s++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = 2 + Math.random() * 2;
+                    const sx = enemy.position.x + Math.cos(angle) * dist;
+                    const sz = enemy.position.z + Math.sin(angle) * dist;
+                    createEnemy(sx, sz, 'fast');
+                }
+                
+                particleSystem.emit({
+                    position: { x: enemy.position.x, y: 1, z: enemy.position.z },
+                    velocity: { x: 0, y: 5, z: 0 },
+                    color: { r: 0.6, g: 0, b: 1 },
+                    count: 40, spread: 2, size: 1.2, lifetime: 0.6, gravity: -2
+                });
+            }
+            
+            const direction = new THREE.Vector3();
+            direction.subVectors(player.position, enemy.position).normalize();
+            direction.y = 0;
+            enemy.position.add(direction.multiplyScalar(data.speed * deltaTime));
+        } else if (data.shootRange && distToPlayer <= data.shootRange && distToPlayer > 3) {
             if (gameTime - data.lastShootTime >= data.shootCooldown) {
                 data.lastShootTime = gameTime;
                 createEnemyProjectile(enemy.position, player.position, data.projectileDamage);
@@ -1331,10 +1502,24 @@ function handleEnemyDeath(enemy, index) {
 
     playDeathEffect(enemy);
     
+    const prevCombo = comboCount;
     comboCount++;
     comboTimer = COMBO_TIMEOUT;
     updateComboDisplay();
     metaSystem.statistics.recordCombo(comboCount);
+    
+    for (const tier of COMBO_THRESHOLDS) {
+        if (prevCombo < tier.threshold && comboCount >= tier.threshold && tier.heal > 0) {
+            playerStats.health = Math.min(playerStats.maxHealth, playerStats.health + tier.heal);
+            particleSystem.emit({
+                position: { x: player.position.x, y: 1.5, z: player.position.z },
+                velocity: { x: 0, y: 3, z: 0 },
+                color: { r: 0.2, g: 1, b: 0.4 },
+                count: 15, spread: 0.5, size: 0.8, lifetime: 0.5, gravity: -2
+            });
+            break;
+        }
+    }
     
     const enemyType = data.isBoss ? 'boss' : (data.isElite ? 'elite' : 'normal');
     metaSystem.statistics.recordKill(enemyType);
@@ -1342,11 +1527,18 @@ function handleEnemyDeath(enemy, index) {
     if (data.explosionRadius) createExplosion(x, z, data.explosionRadius, data.explosionDamage);
 
     if (data.splitCount) {
+        const splitType = data.splitsIntoElites ? 'elite_basic' : 'splitter_child';
+        const spreadDist = data.splitsIntoElites ? 3 : 1.5;
         for (let i = 0; i < data.splitCount; i++) {
             const angle = (Math.PI * 2 / data.splitCount) * i;
-            const offsetX = Math.cos(angle) * 1.5;
-            const offsetZ = Math.sin(angle) * 1.5;
-            createEnemy(x + offsetX, z + offsetZ, 'splitter_child');
+            const offsetX = Math.cos(angle) * spreadDist;
+            const offsetZ = Math.sin(angle) * spreadDist;
+            createEnemy(x + offsetX, z + offsetZ, splitType);
+        }
+        
+        if (data.splitsIntoElites) {
+            shockwaves.spawn(new THREE.Vector3(x, 0, z), 0x00ffaa, 8);
+            screenShake.addTrauma(0.4);
         }
     }
 
@@ -1402,6 +1594,7 @@ function updateProjectiles(deltaTime) {
             if (dist < hitRadius) {
                 let damage = projectile.userData.damage;
                 damage *= powerupSystem.getDamageMultiplier();
+                damage *= getComboBonus().damageMultiplier;
                 const critResult = passiveSystem.rollCrit(damage);
                 damage = critResult.damage;
                 
@@ -1483,7 +1676,7 @@ function updateGems(deltaTime) {
 
         if (dist < 1) {
             const expMultiplier = passiveSystem.getExpMultiplier();
-            playerStats.exp += Math.floor(gem.userData.value * expMultiplier);
+            playerStats.exp += Math.floor(gem.userData.value * expMultiplier * getComboBonus().gemMultiplier);
             metaSystem.statistics.recordGem();
             
             particleSystem.emit({
@@ -1505,10 +1698,31 @@ function updateGems(deltaTime) {
 
 function updateComboDisplay() {
     const display = document.getElementById('combo-display');
+    const bonus = getComboBonus();
+    
     if (comboCount >= 3) {
-        display.textContent = `COMBO x${comboCount}!`;
+        let text = `COMBO x${comboCount}!`;
+        let color = '#ffff00';
+        
+        if (bonus.tier) {
+            text = `${bonus.tier.name}! x${comboCount}`;
+            color = bonus.tier.color;
+            
+            const bonusInfo = [];
+            if (bonus.damageMultiplier > 1) bonusInfo.push(`DMG +${Math.round((bonus.damageMultiplier - 1) * 100)}%`);
+            if (bonus.speedMultiplier > 1) bonusInfo.push(`SPD +${Math.round((bonus.speedMultiplier - 1) * 100)}%`);
+            if (bonus.gemMultiplier > 1) bonusInfo.push(`XP x${bonus.gemMultiplier}`);
+            
+            if (bonusInfo.length > 0) {
+                text += ` [${bonusInfo.join(' ')}]`;
+            }
+        }
+        
+        display.textContent = text;
+        display.style.color = color;
+        display.style.textShadow = `0 0 15px ${color}, 0 0 30px ${color}`;
         display.style.opacity = '1';
-        display.style.transform = `scale(${1 + comboCount * 0.02})`;
+        display.style.transform = `scale(${1 + Math.min(comboCount * 0.02, 0.5)})`;
     } else {
         display.style.opacity = '0';
     }
@@ -1722,6 +1936,164 @@ function startGame() {
     animate();
 }
 
+const gameSettings = {
+    masterVolume: 1.0,
+    sfxVolume: 1.0,
+    screenShake: true,
+    particleQuality: 'high',
+    
+    load() {
+        const saved = localStorage.getItem('survivor3d_settings');
+        if (saved) {
+            const data = JSON.parse(saved);
+            this.masterVolume = data.masterVolume ?? 1.0;
+            this.sfxVolume = data.sfxVolume ?? 1.0;
+            this.screenShake = data.screenShake ?? true;
+            this.particleQuality = data.particleQuality ?? 'high';
+        }
+    },
+    
+    save() {
+        localStorage.setItem('survivor3d_settings', JSON.stringify({
+            masterVolume: this.masterVolume,
+            sfxVolume: this.sfxVolume,
+            screenShake: this.screenShake,
+            particleQuality: this.particleQuality
+        }));
+    }
+};
+
+function initSettingsListeners() {
+    gameSettings.load();
+    applySettings();
+    
+    const masterSlider = document.getElementById('volume-master');
+    const sfxSlider = document.getElementById('volume-sfx');
+    const shakeCheckbox = document.getElementById('setting-screenshake');
+    const particlesSelect = document.getElementById('setting-particles');
+    
+    masterSlider.value = gameSettings.masterVolume * 100;
+    sfxSlider.value = gameSettings.sfxVolume * 100;
+    shakeCheckbox.checked = gameSettings.screenShake;
+    particlesSelect.value = gameSettings.particleQuality;
+    
+    document.getElementById('volume-master-value').textContent = Math.round(gameSettings.masterVolume * 100) + '%';
+    document.getElementById('volume-sfx-value').textContent = Math.round(gameSettings.sfxVolume * 100) + '%';
+    
+    masterSlider.addEventListener('input', (e) => {
+        gameSettings.masterVolume = e.target.value / 100;
+        document.getElementById('volume-master-value').textContent = e.target.value + '%';
+        applySettings();
+        gameSettings.save();
+    });
+    
+    sfxSlider.addEventListener('input', (e) => {
+        gameSettings.sfxVolume = e.target.value / 100;
+        document.getElementById('volume-sfx-value').textContent = e.target.value + '%';
+        applySettings();
+        gameSettings.save();
+    });
+    
+    shakeCheckbox.addEventListener('change', (e) => {
+        gameSettings.screenShake = e.target.checked;
+        gameSettings.save();
+    });
+    
+    particlesSelect.addEventListener('change', (e) => {
+        gameSettings.particleQuality = e.target.value;
+        applySettings();
+        gameSettings.save();
+    });
+}
+
+function applySettings() {
+    if (audio && audio.setMasterVolume) {
+        audio.setMasterVolume(gameSettings.masterVolume * gameSettings.sfxVolume);
+    }
+    
+    if (particleSystem) {
+        const qualityMultipliers = { low: 0.3, medium: 0.6, high: 1.0 };
+        particleSystem.qualityMultiplier = qualityMultipliers[gameSettings.particleQuality] || 1.0;
+    }
+    
+    if (screenShake) {
+        screenShake.enabled = gameSettings.screenShake;
+    }
+}
+
+function handleEscapeKey() {
+    if (currentState === GameState.PLAYING) {
+        pauseGame();
+    } else if (currentState === GameState.PAUSED) {
+        const settingsScreen = document.getElementById('settings-screen');
+        if (settingsScreen.style.display === 'flex') {
+            hideSettings();
+        } else {
+            resumeGame();
+        }
+    }
+}
+
+function pauseGame() {
+    if (currentState !== GameState.PLAYING) return;
+    
+    currentState = GameState.PAUSED;
+    updatePauseScreen();
+    document.getElementById('pause-screen').style.display = 'flex';
+}
+
+function resumeGame() {
+    document.getElementById('pause-screen').style.display = 'none';
+    document.getElementById('settings-screen').style.display = 'none';
+    currentState = GameState.PLAYING;
+}
+
+function showSettings() {
+    document.getElementById('settings-screen').style.display = 'flex';
+}
+
+function hideSettings() {
+    document.getElementById('settings-screen').style.display = 'none';
+}
+
+function quitToMenu() {
+    document.getElementById('pause-screen').style.display = 'none';
+    document.getElementById('hud').style.display = 'none';
+    document.getElementById('start-screen').style.display = 'flex';
+    currentState = GameState.MENU;
+}
+
+function updatePauseScreen() {
+    const statsList = document.getElementById('pause-stats-list');
+    statsList.innerHTML = `
+        <div class="pause-item"><span class="pause-item-name">Level</span><span class="pause-item-value">${playerStats.level}</span></div>
+        <div class="pause-item"><span class="pause-item-name">Health</span><span class="pause-item-value">${Math.floor(playerStats.health)}/${playerStats.maxHealth}</span></div>
+        <div class="pause-item"><span class="pause-item-name">Damage</span><span class="pause-item-value">${playerStats.damage}</span></div>
+        <div class="pause-item"><span class="pause-item-name">Speed</span><span class="pause-item-value">${playerStats.speed.toFixed(1)}</span></div>
+        <div class="pause-item"><span class="pause-item-name">Kills</span><span class="pause-item-value">${playerStats.killCount}</span></div>
+    `;
+    
+    const weaponsList = document.getElementById('pause-weapons-list');
+    const activeWeapons = [];
+    if (weaponSystem.orbitingShields.isActive) activeWeapons.push(`Shields Lv${weaponSystem.orbitingShields.level}`);
+    if (weaponSystem.areaNova.isActive) activeWeapons.push(`Nova Lv${weaponSystem.areaNova.level}`);
+    if (weaponSystem.chainLightning.isActive) activeWeapons.push(`Lightning Lv${weaponSystem.chainLightning.level}`);
+    if (weaponSystem.flamethrower.isActive) activeWeapons.push(`Flame Lv${weaponSystem.flamethrower.level}`);
+    if (weaponSystem.boomerang.isActive) activeWeapons.push(`Boomerang Lv${weaponSystem.boomerang.level}`);
+    if (weaponSystem.orbitalLaser.isActive) activeWeapons.push(`Laser Lv${weaponSystem.orbitalLaser.level}`);
+    weaponsList.innerHTML = activeWeapons.length > 0 
+        ? activeWeapons.map(w => `<div>${w}</div>`).join('')
+        : '<div style="color:#666">None</div>';
+    
+    const passivesList = document.getElementById('pause-passives-list');
+    const activePassives = passiveSystem.upgrades
+        .filter(u => u.level > 0)
+        .map(u => `${u.name} Lv${u.level}`);
+    passivesList.innerHTML = activePassives.length > 0
+        ? activePassives.map(p => `<div>${p}</div>`).join('')
+        : '<div style="color:#666">None</div>';
+}
+
 function restartGame() {
     const character = metaSystem.unlocks.getCharacter(selectedCharacterId);
     const baseHealth = character ? character.stats.health : 100;
@@ -1830,7 +2202,7 @@ function animate() {
         updateEnemyProjectiles(deltaTime);
         updateGems(deltaTime);
         
-        weaponSystem.update(deltaTime, gameTime, player.position, enemies, handleWeaponHit);
+        weaponSystem.update(deltaTime, gameTime, player.position, enemies, handleWeaponHit, playerDirection, gems, handleBoomerangGemCollect);
         powerupSystem.update(deltaTime, gameTime, player.position);
         hazardSystem.update(deltaTime, gameTime, player.position, playerStats, enemies);
         
@@ -1868,6 +2240,29 @@ function handleWeaponHit(enemy, index, damage) {
     damageNumbers.spawn(new THREE.Vector3(enemy.position.x, 1.5, enemy.position.z), damage, false);
     audio.playHit();
     
+    if (data.teleportOnHit && gameTime - (data.lastTeleportOnHitTime || 0) >= (data.teleportCooldown || 1.5)) {
+        data.lastTeleportOnHitTime = gameTime;
+        
+        particleSystem.emit({
+            position: { x: enemy.position.x, y: 1, z: enemy.position.z },
+            velocity: { x: 0, y: 3, z: 0 },
+            color: { r: 0.6, g: 0, b: 1 },
+            count: 25, spread: 0.8, size: 1, lifetime: 0.4, gravity: 0
+        });
+        
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 5 + Math.random() * 5;
+        enemy.position.x = player.position.x + Math.cos(angle) * dist;
+        enemy.position.z = player.position.z + Math.sin(angle) * dist;
+        
+        particleSystem.emit({
+            position: { x: enemy.position.x, y: 1, z: enemy.position.z },
+            velocity: { x: 0, y: 3, z: 0 },
+            color: { r: 0.6, g: 0, b: 1 },
+            count: 25, spread: 0.8, size: 1, lifetime: 0.4, gravity: 0
+        });
+    }
+    
     enemy.children[0].material.emissive.setHex(0xffffff);
     const originalEmissive = enemyTypes[data.type]?.emissive || 0x922b21;
     setTimeout(() => {
@@ -1877,6 +2272,25 @@ function handleWeaponHit(enemy, index, damage) {
     if (data.health <= 0) {
         handleEnemyDeath(enemy, index);
     }
+}
+
+function handleBoomerangGemCollect(gem, index) {
+    const expMultiplier = passiveSystem.getExpMultiplier();
+    playerStats.exp += Math.floor(gem.userData.value * expMultiplier * getComboBonus().gemMultiplier);
+    metaSystem.statistics.recordGem();
+    
+    particleSystem.emit({
+        position: { x: gem.position.x, y: gem.position.y, z: gem.position.z },
+        velocity: { x: 0, y: 5, z: 0 },
+        color: { r: 0.2, g: 1, b: 0.5 },
+        count: 10, spread: 0.3, size: 0.6, lifetime: 0.4, gravity: -5
+    });
+    
+    audio.playGemPickup();
+    GemPool.return(gem);
+    gems.splice(index, 1);
+    
+    if (playerStats.exp >= playerStats.expToLevel) levelUp();
 }
 
 function updateActiveEffectsDisplay() {

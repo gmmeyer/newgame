@@ -1001,6 +1001,45 @@ export const TextureGenerator = {
                 ctx.lineWidth = 3;
                 ctx.stroke();
             },
+            flamethrower: () => {
+                ctx.fillStyle = '#ff6600';
+                for (let i = 0; i < 5; i++) {
+                    const x = size * 0.3 + i * 6;
+                    const height = size * (0.3 + Math.random() * 0.4);
+                    ctx.beginPath();
+                    ctx.ellipse(x, size * 0.7, 4, height * 0.5, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.fillStyle = '#ffff00';
+                ctx.beginPath();
+                ctx.ellipse(size * 0.45, size * 0.6, 6, 12, 0, 0, Math.PI * 2);
+                ctx.fill();
+            },
+            boomerang: () => {
+                ctx.strokeStyle = '#ffaa00';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(size/2, size/2, size * 0.3, -Math.PI * 0.7, Math.PI * 0.2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(size/2, size/2, size * 0.3, Math.PI * 0.3, Math.PI * 1.2);
+                ctx.stroke();
+            },
+            orbitalLaser: () => {
+                ctx.fillStyle = '#ff0066';
+                ctx.beginPath();
+                ctx.arc(size/2, size/2, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ff0066';
+                ctx.lineWidth = 3;
+                for (let i = 0; i < 3; i++) {
+                    const angle = (Math.PI * 2 / 3) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(size/2, size/2);
+                    ctx.lineTo(size/2 + Math.cos(angle) * size * 0.4, size/2 + Math.sin(angle) * size * 0.4);
+                    ctx.stroke();
+                }
+            },
             lifeSteal: () => {
                 ctx.beginPath();
                 ctx.moveTo(size/2, size * 0.2);
