@@ -607,7 +607,7 @@ const enemyTypes = {
         color: 0x8800ff, emissive: 0xaa44ff,
         health: 150, speed: 1.5, damage: 15, scale: 1.6, weight: 0,
         isBoss: true,
-        summonCooldown: 4, summonCount: 2, teleportOnHit: true, teleportCooldown: 1.5,
+        summonCooldown: 4, summonCount: 2, teleportOnHit: true, teleportCooldown: 2, teleportRange: 8,
         gemCount: () => 8 + Math.floor(Math.random() * 5),
         deathParticles: { color: { r: 0.6, g: 0, b: 1 }, count: 100, size: 2 }
     },

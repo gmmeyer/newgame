@@ -425,7 +425,7 @@ export class Flamethrower {
         this.flameAngle += deltaTime * 2;
         const baseAngle = Math.atan2(playerDirection.z, playerDirection.x);
         
-        for (let i = 0; i < (this.isEvolved ? 10 : 5); i++) {
+        for (let i = 0; i < (this.isEvolved ? 15 : 8); i++) {
             const spreadAngle = baseAngle + (Math.random() - 0.5) * this.coneAngle;
             const dist = Math.random() * this.range;
             const x = playerPosition.x + Math.cos(spreadAngle) * dist;
@@ -433,9 +433,9 @@ export class Flamethrower {
             
             this.particleSystem.emit({
                 position: { x, y: 0.8, z },
-                velocity: { x: Math.cos(spreadAngle) * 3, y: 1 + Math.random(), z: Math.sin(spreadAngle) * 3 },
+                velocity: { x: Math.cos(spreadAngle) * 4, y: 1.5 + Math.random(), z: Math.sin(spreadAngle) * 4 },
                 color: Math.random() > 0.3 ? color : secondaryColor,
-                count: 2, spread: 0.2, size: 0.8 + Math.random() * 0.5, lifetime: 0.3, gravity: -2
+                count: 4, spread: 0.4, size: 1.2 + Math.random() * 0.8, lifetime: 0.5, gravity: -2
             });
 
             if (this.isEvolved && hazardSystem && Math.random() < 0.05) {
