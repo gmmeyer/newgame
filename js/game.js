@@ -124,11 +124,65 @@ let enemyProjectiles = [];
 
 const MAX_ENEMIES = 60;
 
-const miniBossSchedule = [
-    { type: 'miniboss_charger', firstSpawn: 45, interval: 120, warning: 'CHARGER APPROACHES!', lastSpawn: -999 },
-    { type: 'miniboss_summoner', firstSpawn: 135, interval: 150, warning: 'SUMMONER AWAKENS!', lastSpawn: -999 },
-    { type: 'miniboss_splitter_king', firstSpawn: 225, interval: 180, warning: 'SPLITTER KING EMERGES!', lastSpawn: -999 }
-];
+const biomes = {
+    cyber: {
+        name: 'CYBER GRID',
+        groundEmissive: 0x004455,
+        fogColor: 0x0a0a1a,
+        background: 0x0a0a1a,
+        ambientColor: 0x404060,
+        enemies: ['basic', 'fast', 'shooter', 'zigzag', 'elite_basic'],
+        stageBoss: 'stage_boss_cyber',
+        bossWarning: 'GRID GUARDIAN AWAKENS!'
+    },
+    toxic: {
+        name: 'TOXIC WASTES',
+        groundEmissive: 0x225500,
+        fogColor: 0x112a00,
+        background: 0x0a1a0a,
+        ambientColor: 0x406040,
+        enemies: ['splitter', 'swarm_mother', 'bomber', 'exploder', 'tank'],
+        stageBoss: 'stage_boss_toxic',
+        bossWarning: 'PLAGUE BEARER EMERGES!'
+    },
+    inferno: {
+        name: 'INFERNO',
+        groundEmissive: 0x551100,
+        fogColor: 0x1a0800,
+        background: 0x1a0500,
+        ambientColor: 0x604040,
+        enemies: ['berserker', 'exploder', 'vampire', 'elite_fast', 'magnet'],
+        stageBoss: 'stage_boss_inferno',
+        bossWarning: 'FLAME LORD RISES!'
+    },
+    void: {
+        name: 'VOID REALM',
+        groundEmissive: 0x220055,
+        fogColor: 0x080016,
+        background: 0x0a001a,
+        ambientColor: 0x504060,
+        enemies: ['ghost', 'teleporter', 'freezer', 'mirror', 'shielder'],
+        stageBoss: 'stage_boss_void',
+        bossWarning: 'VOID KING MANIFESTS!'
+    },
+    final: {
+        name: 'THE CONVERGENCE',
+        groundEmissive: 0x442244,
+        fogColor: 0x1a0a1a,
+        background: 0x1a001a,
+        ambientColor: 0x605060,
+        enemies: ['all'],
+        stageBoss: 'final_boss',
+        bossWarning: 'THE OMEGA APPROACHES!'
+    }
+};
+
+const biomeOrder = ['cyber', 'toxic', 'inferno', 'void', 'final'];
+let currentBiomeIndex = 0;
+let stageBossSpawned = false;
+let stageBossDefeated = false;
+let stageBossEnemy = null;
+const STAGE_BOSS_TIME = 240;
 
 const runTimeline = {
     events: [],
@@ -698,6 +752,56 @@ const enemyTypes = {
         freezesPlayer: true, freezeDuration: 0.5, freezeRange: 2,
         gemCount: () => Math.ceil(Math.random() * 2) + 1,
         deathParticles: { color: { r: 0.5, g: 1, b: 1 }, count: 35 }
+    },
+    stage_boss_cyber: {
+        geometry: () => new THREE.BoxGeometry(1.2, 1.2, 1.2),
+        color: 0x00ffff, emissive: 0x00aaff,
+        health: 800, speed: 3, damage: 25, scale: 2.8, weight: 0,
+        isBoss: true, isStageBoss: true,
+        shootRange: 20, shootCooldown: 1.5, projectileDamage: 20,
+        gemCount: () => 20 + Math.floor(Math.random() * 10),
+        deathParticles: { color: { r: 0, g: 1, b: 1 }, count: 200, size: 3 }
+    },
+    stage_boss_toxic: {
+        geometry: () => new THREE.DodecahedronGeometry(1, 1),
+        color: 0x44ff00, emissive: 0x22dd00,
+        health: 1000, speed: 2, damage: 30, scale: 3, weight: 0,
+        isBoss: true, isStageBoss: true,
+        spawnsMinions: true, minionType: 'splitter', minionCount: 3, spawnCooldown: 5,
+        splitCount: 3,
+        gemCount: () => 25 + Math.floor(Math.random() * 10),
+        deathParticles: { color: { r: 0.3, g: 1, b: 0 }, count: 220, size: 3 }
+    },
+    stage_boss_inferno: {
+        geometry: () => new THREE.ConeGeometry(1, 2, 8),
+        color: 0xff4400, emissive: 0xff6600,
+        health: 1200, speed: 4, damage: 35, scale: 3, weight: 0,
+        isBoss: true, isStageBoss: true,
+        chargeSpeed: 18, chargeCooldown: 4, chargeDistance: 15,
+        leavesFireTrail: true,
+        gemCount: () => 30 + Math.floor(Math.random() * 10),
+        deathParticles: { color: { r: 1, g: 0.4, b: 0 }, count: 240, size: 3.5 }
+    },
+    stage_boss_void: {
+        geometry: () => new THREE.TorusGeometry(0.8, 0.4, 16, 32),
+        color: 0x8800ff, emissive: 0xaa00ff,
+        health: 1500, speed: 3, damage: 40, scale: 3.2, weight: 0,
+        isBoss: true, isStageBoss: true,
+        teleportOnHit: true, teleportCooldown: 1.5, teleportRange: 12,
+        summonCooldown: 6, summonCount: 3,
+        gemCount: () => 35 + Math.floor(Math.random() * 15),
+        deathParticles: { color: { r: 0.6, g: 0, b: 1 }, count: 260, size: 3.5 }
+    },
+    final_boss: {
+        geometry: () => new THREE.IcosahedronGeometry(1.5, 2),
+        color: 0xff00ff, emissive: 0xff44ff,
+        health: 2500, speed: 3.5, damage: 50, scale: 4, weight: 0,
+        isBoss: true, isStageBoss: true, isFinalBoss: true,
+        shootRange: 25, shootCooldown: 1, projectileDamage: 25,
+        teleportOnHit: true, teleportCooldown: 3, teleportRange: 10,
+        spawnsMinions: true, minionType: 'elite_fast', minionCount: 2, spawnCooldown: 8,
+        gemCount: () => 50 + Math.floor(Math.random() * 20),
+        deathParticles: { color: { r: 1, g: 0, b: 1 }, count: 350, size: 4 }
     }
 };
 
@@ -1190,15 +1294,25 @@ function getCurrentTier() {
 }
 
 function selectEnemyType() {
-    const tier = getCurrentTier();
-    const availableTypes = tier.enemies;
+    const currentBiome = biomes[biomeOrder[currentBiomeIndex]];
+    let availableTypes;
+    
+    if (currentBiome.enemies[0] === 'all') {
+        availableTypes = Object.keys(enemyTypes).filter(t => 
+            enemyTypes[t].weight > 0 && !enemyTypes[t].isBoss
+        );
+    } else {
+        availableTypes = currentBiome.enemies;
+    }
 
     let totalWeight = 0;
     const weights = [];
     for (const typeName of availableTypes) {
         const type = enemyTypes[typeName];
-        totalWeight += type.weight;
-        weights.push({ name: typeName, weight: type.weight });
+        if (type && type.weight > 0) {
+            totalWeight += type.weight;
+            weights.push({ name: typeName, weight: type.weight });
+        }
     }
 
     let random = Math.random() * totalWeight;
@@ -1251,6 +1365,7 @@ function createEnemy(x, z, forcedType = null) {
         shootCooldown: type.shootCooldown, projectileDamage: type.projectileDamage,
         teleportCooldown: type.teleportCooldown, teleportRange: type.teleportRange,
         phaseInterval: type.phaseInterval, isElite: type.isElite, isBoss: type.isBoss,
+        isStageBoss: type.isStageBoss, isFinalBoss: type.isFinalBoss,
         gemCount: type.gemCount, deathParticles: type.deathParticles,
         zigzagAmplitude: type.zigzagAmplitude, zigzagFrequency: type.zigzagFrequency,
         lifeSteal: type.lifeSteal, healOnHit: type.healOnHit,
@@ -1418,49 +1533,20 @@ function spawnEnemies(deltaTime) {
     // Slower spawn rate decrease: min 0.8s instead of 0.5s
     spawnInterval = Math.max(0.8, 2 - (gameTime / 60) * 0.10);
 
-    const newTier = getCurrentTier();
-    const tierIndex = difficultyTiers.indexOf(newTier) + 1;
-    if (tierIndex > currentDifficultyTier) {
-        currentDifficultyTier = tierIndex;
-        showWaveWarning(`DIFFICULTY ${newTier.name}`);
-        audio.playBossWarning();
-    }
+    const currentBiome = biomes[biomeOrder[currentBiomeIndex]];
+    const biomeStartTime = currentBiomeIndex * STAGE_BOSS_TIME;
+    const timeInBiome = gameTime - biomeStartTime;
 
-    if (gameTime >= 120 && gameTime - lastBossSpawnTime >= 90) {
-        lastBossSpawnTime = gameTime;
+    if (!stageBossSpawned && timeInBiome >= STAGE_BOSS_TIME) {
+        stageBossSpawned = true;
         const angle = Math.random() * Math.PI * 2;
         const distance = 35;
         const x = player.position.x + Math.cos(angle) * distance;
         const z = player.position.z + Math.sin(angle) * distance;
-        createEnemy(x, z, 'boss');
-        showWaveWarning('BOSS INCOMING!');
+        stageBossEnemy = createEnemy(x, z, currentBiome.stageBoss);
+        showWaveWarning(currentBiome.bossWarning);
         audio.playBossWarning();
-        screenShake.addTrauma(0.5);
-    }
-    
-    miniBossSchedule.forEach(mb => {
-        if (gameTime >= mb.firstSpawn) {
-            const timeSinceFirst = gameTime - mb.firstSpawn;
-            const spawnNumber = Math.floor(timeSinceFirst / mb.interval);
-            const expectedSpawnTime = mb.firstSpawn + spawnNumber * mb.interval;
-            
-            if (gameTime >= expectedSpawnTime && mb.lastSpawn < expectedSpawnTime) {
-                mb.lastSpawn = expectedSpawnTime;
-                const angle = Math.random() * Math.PI * 2;
-                const distance = 30;
-                const x = player.position.x + Math.cos(angle) * distance;
-                const z = player.position.z + Math.sin(angle) * distance;
-                createEnemy(x, z, mb.type);
-                showWaveWarning(mb.warning);
-                audio.playBossWarning();
-                screenShake.addTrauma(0.4);
-            }
-        }
-    });
-
-    if ((Math.floor(gameTime) === 300 || Math.floor(gameTime) === 600) && gameTime - lastTraderSpawnTime > 60) {
-        lastTraderSpawnTime = gameTime;
-        spawnTrader();
+        screenShake.addTrauma(0.6);
     }
 
     if (lastSpawnTime >= spawnInterval && enemies.length < MAX_ENEMIES) {
@@ -1475,6 +1561,64 @@ function spawnEnemies(deltaTime) {
             createEnemy(x, z);
         }
     }
+}
+
+function transitionToNextBiome() {
+    if (currentBiomeIndex >= biomeOrder.length - 1) {
+        return;
+    }
+    
+    currentBiomeIndex++;
+    stageBossSpawned = false;
+    stageBossDefeated = false;
+    stageBossEnemy = null;
+    
+    const newBiome = biomes[biomeOrder[currentBiomeIndex]];
+    
+    showWaveWarning(`ENTERING: ${newBiome.name}`);
+    audio.playBossWarning();
+    screenShake.addTrauma(0.4);
+    screenFlash.flash('#ffffff', 0.5);
+    
+    scene.background = new THREE.Color(newBiome.background);
+    scene.fog = new THREE.FogExp2(newBiome.fogColor, 0.008);
+    
+    if (WorldSystem.groundMaterial) {
+        WorldSystem.groundMaterial.emissive.setHex(newBiome.groundEmissive);
+    }
+    
+    const ambientLight = scene.children.find(c => c.isAmbientLight);
+    if (ambientLight) {
+        ambientLight.color.setHex(newBiome.ambientColor);
+    }
+}
+
+function showVictoryScreen() {
+    currentState = GameState.GAME_OVER;
+    
+    const minutes = Math.floor(gameTime / 60);
+    const seconds = Math.floor(gameTime % 60);
+    document.getElementById('final-time').textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    document.getElementById('final-level').textContent = playerStats.level;
+    document.getElementById('final-kills').textContent = playerStats.killCount;
+    
+    const gameOverScreen = document.getElementById('game-over-screen');
+    gameOverScreen.querySelector('h1').textContent = 'VICTORY!';
+    gameOverScreen.querySelector('h1').style.color = '#0f0';
+    gameOverScreen.querySelector('h1').style.textShadow = '0 0 30px #0f0, 0 0 60px #0f0';
+    
+    const soulsEarned = metaSystem.calculateSouls(gameTime, playerStats.level, playerStats.killCount) * 2;
+    document.getElementById('souls-earned-count').textContent = soulsEarned;
+    metaSystem.addSouls(soulsEarned);
+    updateSoulDisplay();
+    
+    generateRunRecap();
+    
+    document.getElementById('hud').style.display = 'none';
+    document.getElementById('game-over-screen').style.display = 'flex';
+    minimap.hide();
+    
+    if (dynamicMusic) dynamicMusic.stop();
 }
 
 function findNearestEnemy() {
@@ -2004,6 +2148,17 @@ function handleEnemyDeath(enemy, index) {
         timeController.slowMotion(0.5, 0.2);
         chromaticAberration.trigger(0.04);
         runTimeline.recordBossKill(data.type);
+        
+        if (data.isStageBoss) {
+            stageBossDefeated = true;
+            stageBossEnemy = null;
+            
+            if (data.isFinalBoss) {
+                setTimeout(() => showVictoryScreen(), 1500);
+            } else {
+                setTimeout(() => transitionToNextBiome(), 1500);
+            }
+        }
     } else if (data.isElite) {
         screenFlash.flash('#ffaa00', 0.2, 0.1);
     } else {
@@ -2425,8 +2580,8 @@ function updateHUD() {
 
     document.getElementById('kill-count').textContent = `Kills: ${playerStats.killCount}`;
 
-    const tier = getCurrentTier();
-    document.getElementById('difficulty-tier').textContent = `Difficulty: ${tier.name}`;
+    const currentBiome = biomes[biomeOrder[currentBiomeIndex]];
+    document.getElementById('biome-display').textContent = `Stage ${currentBiomeIndex + 1}: ${currentBiome.name}`;
     
     const overlay = document.getElementById('low-health-overlay');
     if (healthPercent < 0.3) {
@@ -2858,9 +3013,20 @@ function restartGame() {
     difficultyMultiplier = 1;
     currentDifficultyTier = 1;
     lastBossSpawnTime = -90;
-    miniBossSchedule.forEach(mb => mb.lastSpawn = -999);
     comboCount = 0;
     comboTimer = 0;
+    
+    currentBiomeIndex = 0;
+    stageBossSpawned = false;
+    stageBossDefeated = false;
+    stageBossEnemy = null;
+    
+    const startBiome = biomes[biomeOrder[0]];
+    scene.background = new THREE.Color(startBiome.background);
+    scene.fog = new THREE.FogExp2(startBiome.fogColor, 0.008);
+    if (WorldSystem.groundMaterial) {
+        WorldSystem.groundMaterial.emissive.setHex(startBiome.groundEmissive);
+    }
 
     cameraBasePosition.set(0, 25, 20);
     cameraTargetPosition.set(0, 25, 20);
@@ -2889,6 +3055,13 @@ function restartGame() {
     
     const statsContainer = document.getElementById('run-stats-summary');
     if (statsContainer) statsContainer.innerHTML = '';
+
+    const gameOverTitle = document.querySelector('#game-over-screen h1');
+    if (gameOverTitle) {
+        gameOverTitle.textContent = 'GAME OVER';
+        gameOverTitle.style.color = '';
+        gameOverTitle.style.textShadow = '';
+    }
 
     document.getElementById('game-over-screen').style.display = 'none';
     document.getElementById('hud').style.display = 'block';

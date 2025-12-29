@@ -132,14 +132,15 @@ body {
     letter-spacing: 2px;
 }
 
-/* Difficulty Tier */
-#difficulty-tier {
+/* Biome/Stage Display */
+#biome-display {
     position: fixed;
     top: 50px;
     right: 20px;
-    font-size: 16px;
-    color: #ff6600;
-    text-shadow: 0 0 10px #ff6600;
+    font-size: 18px;
+    color: #0ff;
+    text-shadow: 0 0 10px #0ff;
+    letter-spacing: 2px;
 }
 
 /* --------------------------------------------------------------------------
