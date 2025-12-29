@@ -122,6 +122,8 @@ let currentDifficultyTier = 1;
 let lastBossSpawnTime = -90;
 let enemyProjectiles = [];
 
+const MAX_ENEMIES = 60;
+
 const miniBossSchedule = [
     { type: 'miniboss_charger', firstSpawn: 45, interval: 120, warning: 'CHARGER APPROACHES!', lastSpawn: -999 },
     { type: 'miniboss_summoner', firstSpawn: 135, interval: 150, warning: 'SUMMONER AWAKENS!', lastSpawn: -999 },
@@ -1411,8 +1413,10 @@ function showWaveWarning(message) {
 function spawnEnemies(deltaTime) {
     lastSpawnTime += deltaTime;
 
-    difficultyMultiplier = 1 + (gameTime / 60) * 0.25;
-    spawnInterval = Math.max(0.5, 2 - (gameTime / 60) * 0.15);
+    // Gentler difficulty scaling: +15% health per minute instead of +25%
+    difficultyMultiplier = 1 + (gameTime / 60) * 0.15;
+    // Slower spawn rate decrease: min 0.8s instead of 0.5s
+    spawnInterval = Math.max(0.8, 2 - (gameTime / 60) * 0.10);
 
     const newTier = getCurrentTier();
     const tierIndex = difficultyTiers.indexOf(newTier) + 1;
@@ -1459,10 +1463,11 @@ function spawnEnemies(deltaTime) {
         spawnTrader();
     }
 
-    if (lastSpawnTime >= spawnInterval) {
+    if (lastSpawnTime >= spawnInterval && enemies.length < MAX_ENEMIES) {
         lastSpawnTime = 0;
-        const spawnCount = Math.min(1 + Math.floor(gameTime / 30), 8);
-        for (let i = 0; i < spawnCount; i++) {
+        const spawnCount = Math.min(1 + Math.floor(gameTime / 45), 5);
+        const actualSpawnCount = Math.min(spawnCount, MAX_ENEMIES - enemies.length);
+        for (let i = 0; i < actualSpawnCount; i++) {
             const angle = Math.random() * Math.PI * 2;
             const distance = 30 + Math.random() * 10;
             const x = player.position.x + Math.cos(angle) * distance;
