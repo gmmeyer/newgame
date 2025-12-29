@@ -30,6 +30,10 @@ body {
 
 #game-container canvas {
     display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
 }
 
 /* --------------------------------------------------------------------------
@@ -284,14 +288,14 @@ body {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.85);
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.95);
     display: none;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    z-index: 300;
+    z-index: 9999;
 }
 
 #pause-screen h1 {
@@ -369,14 +373,14 @@ body {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.9);
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.95);
     display: none;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    z-index: 350;
+    z-index: 10000;
 }
 
 #settings-screen h1 {
@@ -786,7 +790,7 @@ button {
         transparent 2px
     );
     pointer-events: none;
-    z-index: 1000;
+    z-index: 50;
 }
 
 /* --------------------------------------------------------------------------

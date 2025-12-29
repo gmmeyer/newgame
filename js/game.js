@@ -2768,7 +2768,7 @@ function updatePauseScreen() {
     statsList.innerHTML = `
         <div class="pause-item"><span class="pause-item-name">Level</span><span class="pause-item-value">${playerStats.level}</span></div>
         <div class="pause-item"><span class="pause-item-name">Health</span><span class="pause-item-value">${Math.floor(playerStats.health)}/${playerStats.maxHealth}</span></div>
-        <div class="pause-item"><span class="pause-item-name">Damage</span><span class="pause-item-value">${playerStats.damage}</span></div>
+        <div class="pause-item"><span class="pause-item-name">Damage</span><span class="pause-item-value">${Math.round(playerStats.damage)}</span></div>
         <div class="pause-item"><span class="pause-item-name">Speed</span><span class="pause-item-value">${playerStats.speed.toFixed(1)}</span></div>
         <div class="pause-item"><span class="pause-item-name">Kills</span><span class="pause-item-value">${playerStats.killCount}</span></div>
     `;
@@ -2786,9 +2786,17 @@ function updatePauseScreen() {
         : '<div style="color:#666">None</div>';
     
     const passivesList = document.getElementById('pause-passives-list');
-    const activePassives = passiveSystem.upgrades
-        .filter(u => u.level > 0)
-        .map(u => `${u.name} Lv${u.level}`);
+    const passiveEntries = [
+        { name: 'Life Steal', passive: passiveSystem.lifeSteal },
+        { name: 'Thorns', passive: passiveSystem.thorns },
+        { name: 'Magnet', passive: passiveSystem.magnetRange },
+        { name: 'Armor', passive: passiveSystem.armor },
+        { name: 'Crit Chance', passive: passiveSystem.critChance },
+        { name: 'EXP Bonus', passive: passiveSystem.expBonus }
+    ];
+    const activePassives = passiveEntries
+        .filter(e => e.passive.level > 0)
+        .map(e => `${e.name} Lv${e.passive.level}`);
     passivesList.innerHTML = activePassives.length > 0
         ? activePassives.map(p => `<div>${p}</div>`).join('')
         : '<div style="color:#666">None</div>';
